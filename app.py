@@ -83,7 +83,7 @@ def seconds_to_df_timecode(seconds: float) -> str:
     total_seconds = total_frames // 30
     ss = total_seconds % 60
     total_minutes = total_seconds // 60
-    mm = total_minutes % 60
+    mm = total_minutes // 60
     hh = total_minutes // 60
 
     return f"{hh:02d}:{mm:02d}:{ss:02d};{frames:02d}"
@@ -130,11 +130,29 @@ def run_whisper_stt(client: Groq, audio_path: str):
 
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list:
     """
-    Gemini 최신 정식 모델(gemini-2.0-flash) 및 Schema Enforcement를 적용하여
-    30~60초 하이라이트 구간 자동 추천
+    실시간 활성화된 Gemini 모델을 조회하여 Schema Enforcement 적용 후 하이라이트 추천
     """
     client = genai.Client(api_key=gemini_api_key)
     
+    # 1. 사용 가능한 모델 동적 조회 (404 NOT_FOUND 원천 방지)
+    candidate_models = []
+    try:
+        for m in client.models.list():
+            # generateContent 지원 모델만 추출
+            supported = getattr(m, 'supported_generation_methods', []) or getattr(m, 'supported_actions', [])
+            if "generateContent" in supported or not supported:
+                name = m.name.replace("models/", "") if hasattr(m, 'name') else str(m)
+                candidate_models.append(name)
+    except Exception:
+        pass
+
+    # 선호 모델 우선순위 정렬 (조회된 목록에 없으면 기본 우선순위 사용)
+    preferred_order = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash"]
+    
+    final_models = [m for m in preferred_order if m in candidate_models]
+    if not final_models:
+        final_models = candidate_models if candidate_models else preferred_order
+
     condensed_segments = []
     for seg in segments:
         condensed_segments.append({
@@ -156,12 +174,6 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
 {json.dumps(condensed_segments, ensure_ascii=False)}
 """
 
-    # 1. 최우선 지원 모델 및 폴백 모델 순서 지정
-    candidate_models = [
-        "gemini-2.0-flash",
-        "gemini-1.5-flash"
-    ]
-
     gen_config = types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema={
@@ -182,7 +194,7 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
     )
 
     last_exception = None
-    for model_name in candidate_models:
+    for model_name in final_models:
         try:
             response = client.models.generate_content(
                 model=model_name,
