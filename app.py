@@ -26,9 +26,6 @@ st.set_page_config(
 )
 
 # 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
-# 참고: 다크 테마 강제 방지는 .streamlit/config.toml 에서 처리됨.
-# 아래 색상들은 모두 "명시적으로 밝은 배경을 가진 컨테이너 안"에서만 사용되어
-# 테마 설정과 무관하게 대비가 항상 보장되도록 구조를 바꿈.
 st.markdown(
     """
     <style>
@@ -175,29 +172,34 @@ def focus_element_by_id(element_id: str) -> None:
 
 def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
     """st.success / st.info / st.error 를 대체하는 접근성 준수 알림 박스.
-    이모지에는 항상 aria-hidden 처리를 일관되게 적용한다."""
+    스크린리더가 동적 발생 알림을 즉시 인지하도록 aria-live 속성을 명시함."""
     css_class = {
         "info": "a11y-alert-info",
         "success": "a11y-alert-success",
         "error": "a11y-alert-error",
     }.get(kind, "a11y-alert-info")
 
-    role = "alert" if kind == "error" else "status"
+    if kind == "error":
+        role = "alert"
+        aria_live = "assertive"
+    else:
+        role = "status"
+        aria_live = "polite"
+
     icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
 
     st.markdown(
-        f'<div class="a11y-alert {css_class}" role="{role}">{icon_html}{message}</div>',
+        f'<div class="a11y-alert {css_class}" role="{role}" aria-live="{aria_live}">{icon_html}{message}</div>',
         unsafe_allow_html=True,
     )
 
 
 def accessible_step(message: str, icon: str = "") -> None:
     """st.status 내부의 단계별 안내 문구를 위한 접근성 준수 텍스트.
-    이모지에는 aria-hidden을, 문구 갱신은 스크린리더가 인지할 수 있도록
-    role=status 컨테이너로 감싼다."""
+    문구 갱신 시 스크린리더가 끊김 없이 읽을 수 있도록 role=status 및 aria-live=polite 지정."""
     icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
     st.markdown(
-        f'<p class="step-text" role="status">{icon_html}{message}</p>',
+        f'<p class="step-text" role="status" aria-live="polite">{icon_html}{message}</p>',
         unsafe_allow_html=True,
     )
 
@@ -552,7 +554,6 @@ def main():
             status.update(label="✅ 분석 및 EDL 파일 생성이 완료되었습니다!", state="complete", expanded=False)
 
         # 스크린리더 사용자에게 결과 생성 완료를 알리는 시각적으로 숨겨진 알림.
-        # role="status" + aria-live="polite" 조합으로 화면 변화를 능동적으로 공지한다.
         st.markdown(
             '<div class="sr-only" role="status" aria-live="polite">'
             '분석이 완료되었습니다. 추천 숏폼 하이라이트 3건이 아래에 표시됩니다.'
@@ -565,7 +566,6 @@ def main():
             '<h2 id="results-heading" tabindex="-1" style="outline:none;">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
         )
-        # 결과가 방금 나타났음을 키보드/스크린리더 사용자에게 알리기 위해 포커스 이동
         focus_element_by_id("results-heading")
 
         for index, highlight in enumerate(highlights, 1):
@@ -577,7 +577,6 @@ def main():
             subtitle = str(highlight.get("sub_title", "-"))
             reason = str(highlight.get("reason", "-"))
 
-            # 접근성이 준수된 커스텀 카드 HTML
             st.markdown(
                 f"""
                 <article class="highlight-card" aria-labelledby="card-title-{index}">
