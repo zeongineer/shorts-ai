@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types
 
 # ------------------------------------------------------------------------------
-# 1. 환경 설정 및 초기화 (사이드바 완전 제거 UI)
+# 1. 환경 설정 및 UI 초기화 (사이드바 완전 제거 UI)
 # ------------------------------------------------------------------------------
 load_dotenv()
 
@@ -130,7 +130,8 @@ def run_whisper_stt(client: Groq, audio_path: str):
 
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list:
     """
-    Gemini 2.5 Flash 및 Schema Enforcement를 적용하여 30~60초 하이라이트 구간 자동 추천
+    Gemini 최신 정식 모델(gemini-2.0-flash) 및 Schema Enforcement를 적용하여
+    30~60초 하이라이트 구간 자동 추천
     """
     client = genai.Client(api_key=gemini_api_key)
     
@@ -155,31 +156,45 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
 {json.dumps(condensed_segments, ensure_ascii=False)}
 """
 
-    # Gemini 구조화 데이터(JSON Schema) 응답 강제 설정
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema={
-                "type": "ARRAY",
-                "items": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "main_title": {"type": "STRING", "description": "메인 자막 타이틀 (15자 이내)"},
-                        "sub_title": {"type": "STRING", "description": "부제목/요약 (25자 이내)"},
-                        "start_time": {"type": "NUMBER", "description": "시작 시간(초)"},
-                        "end_time": {"type": "NUMBER", "description": "종료 시간(초)"},
-                        "reason": {"type": "STRING", "description": "선정 이유 설명"}
-                    },
-                    "required": ["main_title", "sub_title", "start_time", "end_time", "reason"]
-                }
-            },
-            temperature=0.2
-        )
+    # 1. 최우선 지원 모델 및 폴백 모델 순서 지정
+    candidate_models = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash"
+    ]
+
+    gen_config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema={
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "main_title": {"type": "STRING", "description": "메인 자막 타이틀 (15자 이내)"},
+                    "sub_title": {"type": "STRING", "description": "부제목/요약 (25자 이내)"},
+                    "start_time": {"type": "NUMBER", "description": "시작 시간(초)"},
+                    "end_time": {"type": "NUMBER", "description": "종료 시간(초)"},
+                    "reason": {"type": "STRING", "description": "선정 이유 설명"}
+                },
+                "required": ["main_title", "sub_title", "start_time", "end_time", "reason"]
+            }
+        },
+        temperature=0.2
     )
 
-    return json.loads(response.text)
+    last_exception = None
+    for model_name in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=gen_config
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            last_exception = e
+            continue
+
+    raise RuntimeError(f"모든 Gemini 모델 호출 실패: {last_exception}")
 
 # ------------------------------------------------------------------------------
 # 5. UI 메인 레이아웃 및 핸들러
