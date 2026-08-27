@@ -30,7 +30,7 @@ st.set_page_config(
 # 2. 프로페셔널 라이트 테마 + WCAG AA 접근성 CSS
 # ============================================================
 
-st.markdown(
+st.html(
     """
     <style>
 
@@ -531,8 +531,7 @@ st.markdown(
     }
 
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -541,11 +540,6 @@ st.markdown(
 # ============================================================
 
 def set_page_language(lang_code: str = "ko") -> None:
-    """
-    페이지 전체 언어를 명시적으로 지정하여 스크린리더가
-    올바른 발음 규칙을 사용하도록 한다.
-    """
-
     components.html(
         f"""
         <script>
@@ -560,11 +554,6 @@ def set_page_language(lang_code: str = "ko") -> None:
 
 
 def focus_element_by_id(element_id: str) -> None:
-    """
-    비동기로 렌더링되는 Streamlit 콘텐츠에 대해
-    지정한 id의 요소로 키보드 포커스를 이동한다.
-    """
-
     components.html(
         f"""
         <script>
@@ -594,10 +583,6 @@ def accessible_alert(
     kind: str = "info",
     icon: str = "",
 ) -> None:
-    """
-    WCAG 접근성을 고려한 알림 박스.
-    """
-
     css_class = {
         "info": "a11y-alert-info",
         "success": "a11y-alert-success",
@@ -614,23 +599,14 @@ def accessible_alert(
         role = "status"
         aria_live = "polite"
 
-    icon_html = (
-        f'<span aria-hidden="true">{icon} </span>'
-        if icon
-        else ""
-    )
+    icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
 
-    st.markdown(
+    st.html(
         f"""
-        <div
-            class="a11y-alert {css_class}"
-            role="{role}"
-            aria-live="{aria_live}"
-        >
+        <div class="a11y-alert {css_class}" role="{role}" aria-live="{aria_live}">
             {icon_html}{message}
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -638,27 +614,14 @@ def accessible_step(
     message: str,
     icon: str = "",
 ) -> None:
-    """
-    분석 단계 안내용 접근성 텍스트.
-    """
+    icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
 
-    icon_html = (
-        f'<span aria-hidden="true">{icon} </span>'
-        if icon
-        else ""
-    )
-
-    st.markdown(
+    st.html(
         f"""
-        <p
-            class="step-text"
-            role="status"
-            aria-live="polite"
-        >
+        <p class="step-text" role="status" aria-live="polite">
             {icon_html}{message}
         </p>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -667,32 +630,26 @@ def accessible_step(
 # ============================================================
 
 def render_header() -> None:
-
     set_page_language("ko")
 
-    st.markdown(
+    st.html(
         """
         <div class="title-container">
-
             <div class="title-eyebrow">
                 AI NEWS SHORTFORM EDITOR
             </div>
-
             <h1 class="main-title">
                 <span aria-hidden="true">🎬 </span>
                 뉴스 숏폼 하이라이트 자동 추출기
             </h1>
-
             <p class="sub-title">
                 뉴스 음성/영상 파일을 업로드하면
                 Groq Whisper가 자막과 타임코드를 추출하고,
                 Gemini AI가 30~60초 숏폼 구간과 자막 타이틀을
                 자동으로 선정합니다.
             </p>
-
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     accessible_alert(
@@ -712,136 +669,50 @@ def render_kpi_cards(
     highlight_count: int = 0,
 ) -> None:
 
-    if media_duration > 0:
-        duration_text = seconds_to_min_sec(
-            media_duration
-        )
-    else:
-        duration_text = "—"
+    duration_text = seconds_to_min_sec(media_duration) if media_duration > 0 else "—"
+    segment_text = f"{segment_count:,}" if segment_count > 0 else "—"
+    highlight_text = str(highlight_count) if highlight_count > 0 else "—"
 
-    if segment_count > 0:
-        segment_text = f"{segment_count:,}"
-    else:
-        segment_text = "—"
-
-    if highlight_count > 0:
-        highlight_text = str(
-            highlight_count
-        )
-    else:
-        highlight_text = "—"
-
-    st.markdown(
+    st.html(
         f"""
-        <section
-            class="kpi-grid"
-            aria-label="분석 현황"
-        >
-
-            <article
-                class="kpi-card"
-                aria-label="영상 길이"
-            >
-
+        <section class="kpi-grid" aria-label="분석 현황">
+            <article class="kpi-card" aria-label="영상 길이">
                 <div class="kpi-top">
-
-                    <div class="kpi-label">
-                        영상 길이
-                    </div>
-
-                    <div
-                        class="kpi-icon"
-                        aria-hidden="true"
-                    >
-                        🎞️
-                    </div>
-
+                    <div class="kpi-label">영상 길이</div>
+                    <div class="kpi-icon" aria-hidden="true">🎞️</div>
                 </div>
-
                 <div class="kpi-value">
                     {duration_text}
-                    <span class="kpi-unit">
-                        분:초
-                    </span>
+                    <span class="kpi-unit">분:초</span>
                 </div>
-
-                <div class="kpi-description">
-                    업로드된 뉴스 미디어 전체 길이
-                </div>
-
+                <div class="kpi-description">업로드된 뉴스 미디어 전체 길이</div>
             </article>
 
-
-            <article
-                class="kpi-card green"
-                aria-label="자막 구간 수"
-            >
-
+            <article class="kpi-card green" aria-label="자막 구간 수">
                 <div class="kpi-top">
-
-                    <div class="kpi-label">
-                        자막 구간 수
-                    </div>
-
-                    <div
-                        class="kpi-icon"
-                        aria-hidden="true"
-                    >
-                        📝
-                    </div>
-
+                    <div class="kpi-label">자막 구간 수</div>
+                    <div class="kpi-icon" aria-hidden="true">📝</div>
                 </div>
-
                 <div class="kpi-value">
                     {segment_text}
-                    <span class="kpi-unit">
-                        개
-                    </span>
+                    <span class="kpi-unit">개</span>
                 </div>
-
-                <div class="kpi-description">
-                    Groq Whisper가 추출한 음성 구간
-                </div>
-
+                <div class="kpi-description">Groq Whisper가 추출한 음성 구간</div>
             </article>
 
-
-            <article
-                class="kpi-card orange"
-                aria-label="추천 클립 수"
-            >
-
+            <article class="kpi-card orange" aria-label="추천 클립 수">
                 <div class="kpi-top">
-
-                    <div class="kpi-label">
-                        추천 클립 수
-                    </div>
-
-                    <div
-                        class="kpi-icon"
-                        aria-hidden="true"
-                    >
-                        ✂️
-                    </div>
-
+                    <div class="kpi-label">추천 클립 수</div>
+                    <div class="kpi-icon" aria-hidden="true">✂️</div>
                 </div>
-
                 <div class="kpi-value">
                     {highlight_text}
-                    <span class="kpi-unit">
-                        개
-                    </span>
+                    <span class="kpi-unit">개</span>
                 </div>
-
-                <div class="kpi-description">
-                    Gemini AI가 선정한 숏폼 하이라이트
-                </div>
-
+                <div class="kpi-description">Gemini AI가 선정한 숏폼 하이라이트</div>
             </article>
-
         </section>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -856,97 +727,36 @@ def render_analysis_progress(
     icon: str = "⏳",
     complete: bool = False,
 ) -> None:
-    """
-    분석 진행률 UI.
 
-    실제 외부 API의 내부 진행률을 알 수 없기 때문에
-    전체 파이프라인 단계 기준으로 진행률을 표현한다.
-    """
-
-    progress = max(
-        0,
-        min(100, int(progress)),
-    )
+    progress = max(0, min(100, int(progress)))
 
     if complete:
-
         percent_color = "#15803D"
         fill_color = "#16A34A"
-        status_class = (
-            "progress-status progress-complete"
-        )
-
+        status_class = "progress-status progress-complete"
     else:
-
         percent_color = "#2563EB"
         fill_color = "#2563EB"
         status_class = "progress-status"
 
-    placeholder.markdown(
+    placeholder.html(
         f"""
-        <section
-            class="progress-container"
-            aria-label="뉴스 분석 진행률"
-            role="region"
-        >
-
+        <section class="progress-container" aria-label="뉴스 분석 진행률" role="region">
             <div class="progress-header">
-
-                <span class="progress-title">
-                    뉴스 숏폼 분석 진행률
-                </span>
-
-                <span
-                    class="progress-percent"
-                    style="color: {percent_color};"
-                    aria-label="진행률 {progress}%"
-                >
+                <span class="progress-title">뉴스 숏폼 분석 진행률</span>
+                <span class="progress-percent" style="color: {percent_color};" aria-label="진행률 {progress}%">
                     {progress}%
                 </span>
-
             </div>
-
-            <div
-                class="progress-track"
-                role="progressbar"
-                aria-valuenow="{progress}"
-                aria-valuemin="0"
-                aria-valuemax="100"
-                aria-label="뉴스 숏폼 분석 진행률"
-            >
-
-                <div
-                    class="progress-fill"
-                    style="
-                        width: {progress}%;
-                        background-color: {fill_color};
-                    "
-                ></div>
-
+            <div class="progress-track" role="progressbar" aria-valuenow="{progress}" aria-valuemin="0" aria-valuemax="100" aria-label="뉴스 숏폼 분석 진행률">
+                <div class="progress-fill" style="width: {progress}%; background-color: {fill_color};"></div>
             </div>
-
-            <div
-                class="{status_class}"
-                role="status"
-                aria-live="polite"
-            >
-
-                <span
-                    class="progress-status-icon"
-                    aria-hidden="true"
-                >
-                    {icon}
-                </span>
-
-                <span>
-                    {message}
-                </span>
-
+            <div class="{status_class}" role="status" aria-live="polite">
+                <span class="progress-status-icon" aria-hidden="true">{icon}</span>
+                <span>{message}</span>
             </div>
-
         </section>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -954,327 +764,123 @@ def render_analysis_progress(
 # 7. 유틸리티 함수
 # ============================================================
 
-def prepare_audio_for_groq(
-    input_file_path: str,
-) -> str:
-
-    output_temp_file = tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".mp3",
-    )
-
+def prepare_audio_for_groq(input_file_path: str) -> str:
+    output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
-
     output_temp_file.close()
 
     cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        input_file_path,
-        "-vn",
-        "-ar",
-        "16000",
-        "-ac",
-        "1",
-        "-b:a",
-        "32k",
-        "-f",
-        "mp3",
-        output_path,
+        "ffmpeg", "-y", "-i", input_file_path,
+        "-vn", "-ar", "16000", "-ac", "1",
+        "-b:a", "32k", "-f", "mp3", output_path,
     ]
 
     try:
-
-        subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
-
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
         return output_path
-
     except subprocess.CalledProcessError as e:
-
         if os.path.exists(output_path):
             os.remove(output_path)
-
-        error_message = e.stderr.decode(
-            "utf-8",
-            errors="ignore",
-        )
-
-        raise RuntimeError(
-            f"오디오 변환(ffmpeg) 실패:\n{error_message}"
-        )
+        error_message = e.stderr.decode("utf-8", errors="ignore")
+        raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
 
 
-def seconds_to_df_timecode(
-    seconds: float,
-) -> str:
-
-    seconds = max(
-        0.0,
-        float(seconds),
-    )
-
-    total_frames = int(
-        round(seconds * 29.97)
-    )
+def seconds_to_df_timecode(seconds: float) -> str:
+    seconds = max(0.0, float(seconds))
+    total_frames = int(round(seconds * 29.97))
 
     D = total_frames // 17982
     M = total_frames % 17982
 
     if M >= 2:
-
-        total_frames += (
-            18 * D
-            + 2 * ((M - 2) // 1798)
-        )
-
+        total_frames += 18 * D + 2 * ((M - 2) // 1798)
     else:
-
         total_frames += 18 * D
 
     frames = total_frames % 30
-
     total_seconds = total_frames // 30
-
     ss = total_seconds % 60
-
     total_minutes = total_seconds // 60
-
     mm = total_minutes % 60
-
     hh = total_minutes // 60
 
-    return (
-        f"{hh:02d}:"
-        f"{mm:02d}:"
-        f"{ss:02d};"
-        f"{frames:02d}"
-    )
+    return f"{hh:02d}:{mm:02d}:{ss:02d};{frames:02d}"
 
 
-def seconds_to_min_sec(
-    seconds: float,
-) -> str:
-
-    seconds = max(
-        0,
-        int(seconds),
-    )
-
-    minutes, seconds = divmod(
-        seconds,
-        60,
-    )
-
-    return (
-        f"{minutes:02d}:"
-        f"{seconds:02d}"
-    )
+def seconds_to_min_sec(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    minutes, seconds = divmod(seconds, 60)
+    return f"{minutes:02d}:{seconds:02d}"
 
 
-def get_media_duration(
-    file_path: str,
-) -> float:
-
+def get_media_duration(file_path: str) -> float:
     cmd = [
-        "ffprobe",
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
+        "ffprobe", "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
         file_path,
     ]
 
     try:
-
         result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            text=True,
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True
         )
-
-        return float(
-            result.stdout.strip()
-        )
-
-    except (
-        subprocess.CalledProcessError,
-        ValueError,
-    ):
-
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
         return 0.0
 
 
-def generate_edl(
-    highlights: list,
-    reel_name: str = "AX0101",
-) -> str:
+def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
+    edl_lines = ["TITLE: NEWS_SHORTFORM_HIGHLIGHTS", "FMT: NTSC DF", ""]
 
-    edl_lines = [
-        "TITLE: NEWS_SHORTFORM_HIGHLIGHTS",
-        "FMT: NTSC DF",
-        "",
-    ]
-
-    for idx, item in enumerate(
-        highlights,
-        1,
-    ):
-
-        start_time = float(
-            item.get(
-                "start_time",
-                0.0,
-            )
-        )
-
-        end_time = float(
-            item.get(
-                "end_time",
-                0.0,
-            )
-        )
-
-        src_in = seconds_to_df_timecode(
-            start_time
-        )
-
-        src_out = seconds_to_df_timecode(
-            end_time
-        )
-
-        main_title = str(
-            item.get(
-                "main_title",
-                "Highlight",
-            )
-        )
-
-        sub_title = str(
-            item.get(
-                "sub_title",
-                "",
-            )
-        )
+    for idx, item in enumerate(highlights, 1):
+        start_time = float(item.get("start_time", 0.0))
+        end_time = float(item.get("end_time", 0.0))
+        src_in = seconds_to_df_timecode(start_time)
+        src_out = seconds_to_df_timecode(end_time)
+        main_title = str(item.get("main_title", "Highlight"))
+        sub_title = str(item.get("sub_title", ""))
 
         edl_lines.append(
-            f"{idx:03d} "
-            f"{reel_name:<8} "
-            f"AA/V C "
-            f"{src_in} "
-            f"{src_out} "
-            f"{src_in} "
-            f"{src_out}"
+            f"{idx:03d} {reel_name:<8} AA/V C {src_in} {src_out} {src_in} {src_out}"
         )
-
-        edl_lines.append(
-            f"* FROM CLIP: {main_title}"
-        )
-
-        edl_lines.append(
-            f"* COMMENTS: {sub_title}"
-        )
-
+        edl_lines.append(f"* FROM CLIP: {main_title}")
+        edl_lines.append(f"* COMMENTS: {sub_title}")
         edl_lines.append("")
 
-    return "\n".join(
-        edl_lines
-    )
+    return "\n".join(edl_lines)
 
 
 # ============================================================
 # 8. Whisper STT
 # ============================================================
 
-def extract_segment_data(
-    segment: Any,
-) -> Dict[str, Any]:
-
-    if isinstance(
-        segment,
-        dict,
-    ):
-
+def extract_segment_data(segment: Any) -> Dict[str, Any]:
+    if isinstance(segment, dict):
         return {
-            "start": segment.get(
-                "start",
-                0.0,
-            ),
-            "end": segment.get(
-                "end",
-                0.0,
-            ),
-            "text": segment.get(
-                "text",
-                "",
-            ),
+            "start": segment.get("start", 0.0),
+            "end": segment.get("end", 0.0),
+            "text": segment.get("text", ""),
         }
 
     return {
-        "start": getattr(
-            segment,
-            "start",
-            0.0,
-        ),
-        "end": getattr(
-            segment,
-            "end",
-            0.0,
-        ),
-        "text": getattr(
-            segment,
-            "text",
-            "",
-        ),
+        "start": getattr(segment, "start", 0.0),
+        "end": getattr(segment, "end", 0.0),
+        "text": getattr(segment, "text", ""),
     }
 
 
-def run_whisper_stt(
-    client: Groq,
-    audio_path: str,
-) -> List[Dict[str, Any]]:
-
-    with open(
-        audio_path,
-        "rb",
-    ) as file:
-
-        transcription = (
-            client.audio.transcriptions.create(
-                file=(
-                    os.path.basename(
-                        audio_path
-                    ),
-                    file.read(),
-                ),
-                model="whisper-large-v3",
-                response_format="verbose_json",
-                language="ko",
-            )
+def run_whisper_stt(client: Groq, audio_path: str) -> List[Dict[str, Any]]:
+    with open(audio_path, "rb") as file:
+        transcription = client.audio.transcriptions.create(
+            file=(os.path.basename(audio_path), file.read()),
+            model="whisper-large-v3",
+            response_format="verbose_json",
+            language="ko",
         )
 
-    raw_segments = (
-        getattr(
-            transcription,
-            "segments",
-            [],
-        )
-        or []
-    )
-
-    return [
-        extract_segment_data(seg)
-        for seg in raw_segments
-    ]
+    raw_segments = getattr(transcription, "segments", []) or []
+    return [extract_segment_data(seg) for seg in raw_segments]
 
 
 # ============================================================
@@ -1287,134 +893,47 @@ def sanitize_and_fix_highlights(
 ) -> list:
 
     fixed_list = []
-
-    if not isinstance(
-        raw_highlights,
-        list,
-    ):
+    if not isinstance(raw_highlights, list):
         return fixed_list
 
     for item in raw_highlights:
-
-        if not isinstance(
-            item,
-            dict,
-        ):
+        if not isinstance(item, dict):
             continue
 
         try:
-
-            start_time = max(
-                0.0,
-                float(
-                    item.get(
-                        "start_time",
-                        0.0,
-                    )
-                ),
-            )
-
-            end_time = max(
-                0.0,
-                float(
-                    item.get(
-                        "end_time",
-                        0.0,
-                    )
-                ),
-            )
+            start_time = max(0.0, float(item.get("start_time", 0.0)))
+            end_time = max(0.0, float(item.get("end_time", 0.0)))
 
             if start_time > end_time:
-
-                start_time, end_time = (
-                    end_time,
-                    start_time,
-                )
+                start_time, end_time = end_time, start_time
 
             if media_duration > 0:
+                start_time = min(start_time, media_duration)
+                end_time = min(end_time, media_duration)
 
-                start_time = min(
-                    start_time,
-                    media_duration,
-                )
-
-                end_time = min(
-                    end_time,
-                    media_duration,
-                )
-
-            duration = (
-                end_time - start_time
-            )
+            duration = end_time - start_time
 
             if duration < 30.0:
-
-                candidate_end = (
-                    start_time + 30.0
-                )
-
-                if (
-                    media_duration > 0
-                    and candidate_end
-                    > media_duration
-                ):
-
-                    start_time = max(
-                        0.0,
-                        media_duration - 30.0,
-                    )
-
-                    end_time = (
-                        media_duration
-                    )
-
+                candidate_end = start_time + 30.0
+                if media_duration > 0 and candidate_end > media_duration:
+                    start_time = max(0.0, media_duration - 30.0)
+                    end_time = media_duration
                 else:
-
-                    end_time = (
-                        candidate_end
-                    )
-
-                duration = (
-                    end_time - start_time
-                )
+                    end_time = candidate_end
+                duration = end_time - start_time
 
             if duration > 60.0:
+                end_time = start_time + 60.0
+                duration = end_time - start_time
 
-                end_time = (
-                    start_time + 60.0
-                )
-
-                duration = (
-                    end_time - start_time
-                )
-
-            if (
-                start_time >= end_time
-                or not (
-                    29.0
-                    <= duration
-                    <= 61.0
-                )
-            ):
+            if start_time >= end_time or not (29.0 <= duration <= 61.0):
                 continue
 
-            item["start_time"] = round(
-                start_time,
-                2,
-            )
-
-            item["end_time"] = round(
-                end_time,
-                2,
-            )
-
+            item["start_time"] = round(start_time, 2)
+            item["end_time"] = round(end_time, 2)
             fixed_list.append(item)
 
-        except (
-            TypeError,
-            ValueError,
-        ):
-
+        except (TypeError, ValueError):
             continue
 
     return fixed_list
@@ -1430,10 +949,7 @@ def run_gemini_highlight_extraction(
     media_duration: float = 0.0,
 ) -> list:
 
-    client = genai.Client(
-        api_key=gemini_api_key
-    )
-
+    client = genai.Client(api_key=gemini_api_key)
     preferred_models = [
         "gemini-3.7-flash",
         "gemini-3.6-flash",
@@ -1441,40 +957,15 @@ def run_gemini_highlight_extraction(
     ]
 
     formatted_transcript = []
-
     for segment in segments:
-
-        seg_data = extract_segment_data(
-            segment
-        )
-
-        start = round(
-            float(
-                seg_data["start"]
-            ),
-            2,
-        )
-
-        end = round(
-            float(
-                seg_data["end"]
-            ),
-            2,
-        )
-
-        text = str(
-            seg_data["text"]
-        ).strip()
-
+        seg_data = extract_segment_data(segment)
+        start = round(float(seg_data["start"]), 2)
+        end = round(float(seg_data["end"]), 2)
+        text = str(seg_data["text"]).strip()
         if text:
+            formatted_transcript.append(f"[{start:.2f}s ~ {end:.2f}s] {text}")
 
-            formatted_transcript.append(
-                f"[{start:.2f}s ~ {end:.2f}s] {text}"
-            )
-
-    transcript_text = "\n".join(
-        formatted_transcript
-    )
+    transcript_text = "\n".join(formatted_transcript)
 
     prompt = f"""
 너는 뉴스 방송 수석 에디터이자 YouTube Shorts/TikTok 전문 숏폼 에디터이다.
@@ -1541,49 +1032,28 @@ start_time은 선택한 첫 번째 자막의 시작 시간, end_time은 마지�
     last_exception = None
 
     for model_name in preferred_models:
-
         try:
-
-            response = (
-                client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=gen_config,
-                )
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=gen_config,
             )
 
-            raw_data = json.loads(
-                response.text
-            )
-
-            sanitized_data = (
-                sanitize_and_fix_highlights(
-                    raw_data,
-                    media_duration,
-                )
-            )
+            raw_data = json.loads(response.text)
+            sanitized_data = sanitize_and_fix_highlights(raw_data, media_duration)
 
             if len(sanitized_data) == 3:
-
                 return sanitized_data
-
             else:
-
                 last_exception = RuntimeError(
-                    f"모델 {model_name}이 "
-                    "유효한 3개 구간을 "
-                    "반환하지 않았습니다."
+                    f"모델 {model_name}이 유효한 3개 구간을 반환하지 않았습니다."
                 )
-
         except Exception as error:
-
             last_exception = error
-
             continue
 
     raise RuntimeError(
-        "하이라이트 추출에 실패했습니다. "
-        "잠시 후 다시 시도해주세요."
+        "하이라이트 추출에 실패했습니다. 잠시 후 다시 시도해주세요."
     ) from last_exception
 
 
@@ -1592,31 +1062,9 @@ start_time은 선택한 첫 번째 자막의 시작 시간, end_time은 마지�
 # ============================================================
 
 def get_api_keys():
-
-    groq_api_key = (
-        st.secrets.get(
-            "GROQ_API_KEY",
-            None,
-        )
-        or os.getenv(
-            "GROQ_API_KEY"
-        )
-    )
-
-    gemini_api_key = (
-        st.secrets.get(
-            "GEMINI_API_KEY",
-            None,
-        )
-        or os.getenv(
-            "GEMINI_API_KEY"
-        )
-    )
-
-    return (
-        groq_api_key,
-        gemini_api_key,
-    )
+    groq_api_key = st.secrets.get("GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
+    gemini_api_key = st.secrets.get("GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
+    return groq_api_key, gemini_api_key
 
 
 # ============================================================
@@ -1629,35 +1077,20 @@ def render_section_header(
     description: str = "",
 ) -> None:
 
-    st.markdown(
+    st.html(
         f"""
         <div class="section-header">
-
-            <span
-                class="section-number"
-                aria-hidden="true"
-            >
-                {number}
-            </span>
-
-            <h2 class="section-title">
-                {title}
-            </h2>
-
+            <span class="section-number" aria-hidden="true">{number}</span>
+            <h2 class="section-title">{title}</h2>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     if description:
-
-        st.markdown(
+        st.html(
             f"""
-            <p class="section-description">
-                {description}
-            </p>
-            """,
-            unsafe_allow_html=True,
+            <p class="section-description">{description}</p>
+            """
         )
 
 
@@ -1671,33 +1104,21 @@ def main():
     # API Key
     # --------------------------------------------------------
 
-    groq_api_key, gemini_api_key = (
-        get_api_keys()
-    )
+    groq_api_key, gemini_api_key = get_api_keys()
 
-    if (
-        not groq_api_key
-        or not gemini_api_key
-    ):
-
+    if not groq_api_key or not gemini_api_key:
         accessible_alert(
             "API 키가 설정되지 않았습니다.",
             kind="error",
             icon="⚠️",
         )
-
         accessible_alert(
-            "환경 변수 또는 Streamlit Secrets에 "
-            "GROQ_API_KEY와 GEMINI_API_KEY를 "
-            "설정해 주세요.",
+            "환경 변수 또는 Streamlit Secrets에 GROQ_API_KEY와 GEMINI_API_KEY를 설정해 주세요.",
             kind="info",
         )
-
         st.stop()
 
-    groq_client = Groq(
-        api_key=groq_api_key
-    )
+    groq_client = Groq(api_key=groq_api_key)
 
 
     # --------------------------------------------------------
@@ -1705,7 +1126,6 @@ def main():
     # --------------------------------------------------------
 
     render_header()
-
     st.divider()
 
 
@@ -1716,7 +1136,6 @@ def main():
     kpi_placeholder = st.empty()
 
     with kpi_placeholder.container():
-
         render_kpi_cards(
             media_duration=0.0,
             segment_count=0,
@@ -1734,50 +1153,30 @@ def main():
         "분석할 뉴스 음성 또는 영상 파일을 업로드하세요.",
     )
 
-    st.markdown(
+    st.html(
         """
         <div class="upload-info">
-
-            <div class="upload-info-title">
-                지원 파일 형식
-            </div>
-
+            <div class="upload-info-title">지원 파일 형식</div>
             <p class="upload-info-text">
-                MP3 · MP4 · TS · MOV · M4A · WAV
-                &nbsp;|&nbsp;
-                최대 1GB
+                MP3 · MP4 · TS · MOV · M4A · WAV &nbsp;|&nbsp; 최대 1GB
             </p>
-
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     uploaded_file = st.file_uploader(
         "뉴스 음성 또는 영상 파일을 선택하세요.",
-        type=[
-            "mp3",
-            "mp4",
-            "ts",
-            "mov",
-            "m4a",
-            "wav",
-        ],
-        help=(
-            "MP3, MP4, TS, MOV 등 "
-            "다양한 방송 미디어 포맷을 지원합니다."
-        ),
+        type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
+        help="MP3, MP4, TS, MOV 등 다양한 방송 미디어 포맷을 지원합니다.",
         label_visibility="collapsed",
     )
 
     if uploaded_file is None:
-
         accessible_alert(
             "파일을 업로드하시면 하이라이트 분석 및 EDL 생성을 시작할 수 있습니다.",
             kind="info",
             icon="📌",
         )
-
         return
 
 
@@ -1785,29 +1184,19 @@ def main():
     # 업로드 파일 정보
     # --------------------------------------------------------
 
-    file_size_mb = (
-        uploaded_file.size
-        / (1024 * 1024)
-    )
+    file_size_mb = uploaded_file.size / (1024 * 1024)
 
     accessible_alert(
-        f"파일 선택 완료: "
-        f"<strong>{uploaded_file.name}</strong> "
-        f"({file_size_mb:.2f} MB)",
+        f"파일 선택 완료: <strong>{uploaded_file.name}</strong> ({file_size_mb:.2f} MB)",
         kind="success",
         icon="📁",
     )
 
-    if uploaded_file.size > (
-        1024 * 1024 * 1024
-    ):
-
+    if uploaded_file.size > (1024 * 1024 * 1024):
         accessible_alert(
-            "파일 크기가 1GB를 초과합니다. "
-            "1GB 이하의 파일을 업로드해 주세요.",
+            "파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.",
             kind="error",
         )
-
         return
 
 
@@ -1886,33 +1275,15 @@ def main():
             # 임시 파일 저장
             # -------------------------------------------------
 
-            suffix = (
-                "."
-                + uploaded_file.name.split(
-                    "."
-                )[-1]
-            )
+            suffix = "." + uploaded_file.name.split(".")[-1]
 
-            with tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=suffix,
-            ) as tmp:
-
-                chunk_size = (
-                    8 * 1024 * 1024
-                )
-
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                chunk_size = 8 * 1024 * 1024
                 while True:
-
-                    chunk = uploaded_file.read(
-                        chunk_size
-                    )
-
+                    chunk = uploaded_file.read(chunk_size)
                     if not chunk:
                         break
-
                     tmp.write(chunk)
-
                 raw_input_path = tmp.name
 
 
@@ -1920,11 +1291,7 @@ def main():
             # 영상 길이 확인
             # -------------------------------------------------
 
-            media_duration = (
-                get_media_duration(
-                    raw_input_path
-                )
-            )
+            media_duration = get_media_duration(raw_input_path)
 
 
             # -------------------------------------------------
@@ -1938,12 +1305,7 @@ def main():
                 icon="🎧",
             )
 
-            processed_audio_path = (
-                prepare_audio_for_groq(
-                    raw_input_path
-                )
-            )
-
+            processed_audio_path = prepare_audio_for_groq(raw_input_path)
 
             render_analysis_progress(
                 progress_placeholder,
@@ -1974,14 +1336,10 @@ def main():
                 processed_audio_path,
             )
 
-
             if not segments:
-
                 raise RuntimeError(
-                    "음성에서 자막을 추출하지 못했습니다. "
-                    "오디오 트랙을 확인해주세요."
+                    "음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요."
                 )
-
 
             render_analysis_progress(
                 progress_placeholder,
@@ -2012,14 +1370,11 @@ def main():
                 icon="3️⃣",
             )
 
-            highlights = (
-                run_gemini_highlight_extraction(
-                    gemini_api_key,
-                    segments,
-                    media_duration,
-                )
+            highlights = run_gemini_highlight_extraction(
+                gemini_api_key,
+                segments,
+                media_duration,
             )
-
 
             render_analysis_progress(
                 progress_placeholder,
@@ -2034,7 +1389,6 @@ def main():
             # -------------------------------------------------
 
             with kpi_placeholder.container():
-
                 render_kpi_cards(
                     media_duration=media_duration,
                     segment_count=len(segments),
@@ -2058,9 +1412,7 @@ def main():
                 icon="4️⃣",
             )
 
-            edl_content = generate_edl(
-                highlights
-            )
+            edl_content = generate_edl(highlights)
 
 
             # -------------------------------------------------
@@ -2086,19 +1438,12 @@ def main():
         # Screen Reader 완료 알림
         # ----------------------------------------------------
 
-        st.markdown(
+        st.html(
             """
-            <div
-                class="sr-only"
-                role="status"
-                aria-live="polite"
-            >
-                분석이 완료되었습니다.
-                추천 숏폼 하이라이트 3건이
-                아래에 표시됩니다.
+            <div class="sr-only" role="status" aria-live="polite">
+                분석이 완료되었습니다. 추천 숏폼 하이라이트 3건이 아래에 표시됩니다.
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
 
@@ -2106,44 +1451,22 @@ def main():
         # 3. 결과
         # ====================================================
 
-        st.markdown(
+        st.html(
             """
-            <h2
-                id="results-heading"
-                tabindex="-1"
-                style="
-                    outline:none;
-                    color:#0F172A;
-                    font-size:1.12rem;
-                    font-weight:800;
-                    margin-top:28px;
-                "
-            >
+            <h2 id="results-heading" tabindex="-1" style="outline:none; color:#0F172A; font-size:1.12rem; font-weight:800; margin-top:28px;">
                 3. 추천 숏폼 하이라이트
             </h2>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        focus_element_by_id(
-            "results-heading"
-        )
-
-
-        st.markdown(
             """
-            <p
-                style="
-                    color:#64748B;
-                    font-size:0.84rem;
-                    margin:4px 0 14px 0;
-                "
-            >
-                Gemini AI가 뉴스 맥락과 타임코드를 분석하여
-                선정한 30~60초 숏폼 후보입니다.
+        )
+
+        focus_element_by_id("results-heading")
+
+        st.html(
+            """
+            <p style="color:#64748B; font-size:0.84rem; margin:4px 0 14px 0;">
+                Gemini AI가 뉴스 맥락과 타임코드를 분석하여 선정한 30~60초 숏폼 후보입니다.
             </p>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
 
@@ -2153,143 +1476,39 @@ def main():
 
         highlight_cards_html = ""
 
+        for index, highlight in enumerate(highlights, 1):
+            start_sec = float(highlight.get("start_time", 0.0))
+            end_sec = float(highlight.get("end_time", 0.0))
+            duration = round(end_sec - start_sec, 1)
 
-        for index, highlight in enumerate(
-            highlights,
-            1,
-        ):
-
-            start_sec = float(
-                highlight.get(
-                    "start_time",
-                    0.0,
-                )
-            )
-
-            end_sec = float(
-                highlight.get(
-                    "end_time",
-                    0.0,
-                )
-            )
-
-            duration = round(
-                end_sec - start_sec,
-                1,
-            )
-
-            title = str(
-                highlight.get(
-                    "main_title",
-                    f"하이라이트 {index}",
-                )
-            )
-
-            subtitle = str(
-                highlight.get(
-                    "sub_title",
-                    "-",
-                )
-            )
-
-            reason = str(
-                highlight.get(
-                    "reason",
-                    "-",
-                )
-            )
-
+            title = str(highlight.get("main_title", f"하이라이트 {index}"))
+            subtitle = str(highlight.get("sub_title", "-"))
+            reason = str(highlight.get("reason", "-"))
 
             highlight_cards_html += f"""
-            <article
-                class="highlight-card"
-                aria-labelledby="card-title-{index}"
-            >
-
-                <span class="badge">
-                    SHORTFORM #{index}
-                </span>
-
-                <h3
-                    id="card-title-{index}"
-                    class="highlight-title"
-                >
-                    {title}
-                </h3>
-
-                <p class="highlight-subtitle">
-                    {subtitle}
-                </p>
-
-                <div
-                    class="time-info"
-                    role="region"
-                    aria-label="시간 정보"
-                >
-
-                    <span aria-hidden="true">
-                        ⏱️
-                    </span>
-
-                    <strong>
-                        타임코드
-                    </strong>
-
-                    <br>
-
-                    {seconds_to_df_timecode(start_sec)}
-                    ~
-                    {seconds_to_df_timecode(end_sec)}
-
-                    <br>
-
-                    <span aria-hidden="true">
-                        ⏳
-                    </span>
-
-                    <strong>
-                        재생시간
-                    </strong>
-
-                    <br>
-
-                    {seconds_to_min_sec(start_sec)}
-                    ~
-                    {seconds_to_min_sec(end_sec)}
-
-                    ({duration}초)
-
+            <article class="highlight-card" aria-labelledby="card-title-{index}">
+                <span class="badge">SHORTFORM #{index}</span>
+                <h3 id="card-title-{index}" class="highlight-title">{title}</h3>
+                <p class="highlight-subtitle">{subtitle}</p>
+                <div class="time-info" role="region" aria-label="시간 정보">
+                    <span aria-hidden="true">⏱️</span> <strong>타임코드</strong><br>
+                    {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
+                    <span aria-hidden="true">⏳</span> <strong>재생시간</strong><br>
+                    {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
                 </div>
-
                 <p class="reason">
-
-                    <strong>
-                        <span aria-hidden="true">
-                            💡
-                        </span>
-                        선정 이유:
-                    </strong>
-
-                    {reason}
-
+                    <strong><span aria-hidden="true">💡</span> 선정 이유:</strong> {reason}
                 </p>
-
             </article>
             """
 
-
-        st.markdown(
+        st.html(
             f"""
-            <section
-                class="highlight-grid"
-                aria-label="추천 숏폼 하이라이트 목록"
-            >
+            <section class="highlight-grid" aria-label="추천 숏폼 하이라이트 목록">
                 {highlight_cards_html}
             </section>
-            """,
-            unsafe_allow_html=True,
+            """
         )
-
 
         st.divider()
 
@@ -2304,30 +1523,16 @@ def main():
             "생성된 EDL 파일을 다운로드하여 EDIUS 편집 프로젝트에 활용할 수 있습니다.",
         )
 
+        edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
-        edl_filename = (
-            f"{os.path.splitext(uploaded_file.name)[0]}"
-            f"_shortform.edl"
-        )
-
-
-        st.markdown(
+        st.html(
             f"""
             <div class="download-card">
-
-                <div class="download-title">
-                    EDIUS용 CMX 3600 EDL
-                </div>
-
-                <div class="download-description">
-                    파일명: {edl_filename}
-                </div>
-
+                <div class="download-title">EDIUS용 CMX 3600 EDL</div>
+                <div class="download-description">파일명: {edl_filename}</div>
             </div>
-            """,
-            unsafe_allow_html=True,
+            """
         )
-
 
         st.download_button(
             label="💾 EDIUS용 EDL 파일 다운로드",
@@ -2357,40 +1562,16 @@ def main():
             icon="❌",
         )
 
-        st.markdown(
+        st.html(
             """
-            <ul
-                style="
-                    color:#334155;
-                    font-size:0.9rem;
-                    line-height:1.7;
-                "
-            >
-
-                <li>
-                    오디오 트랙이 정상 포함된
-                    미디어 파일인지 확인해 보세요.
-                </li>
-
-                <li>
-                    지속적인 실패 발생 시
-                    관리자에게 문의바랍니다.
-                </li>
-
+            <ul style="color:#334155; font-size:0.9rem; line-height:1.7;">
+                <li>오디오 트랙이 정상 포함된 미디어 파일인지 확인해 보세요.</li>
+                <li>지속적인 실패 발생 시 관리자에게 문의바랍니다.</li>
             </ul>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
-
-        if (
-            os.getenv(
-                "APP_DEBUG",
-                "false",
-            ).lower()
-            == "true"
-        ):
-
+        if os.getenv("APP_DEBUG", "false").lower() == "true":
             st.exception(error)
 
 
@@ -2399,23 +1580,11 @@ def main():
     # ========================================================
 
     finally:
-
-        for path in [
-            raw_input_path,
-            processed_audio_path,
-        ]:
-
-            if (
-                path
-                and os.path.exists(path)
-            ):
-
+        for path in [raw_input_path, processed_audio_path]:
+            if path and os.path.exists(path):
                 try:
-
                     os.remove(path)
-
                 except OSError:
-
                     pass
 
 
