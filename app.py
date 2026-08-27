@@ -64,6 +64,7 @@ def seconds_to_df_timecode(seconds: float) -> str:
     """
     초 단위 실수를 NTSC Drop Frame Timecode (29.97 fps, HH:MM:SS;FF) 로 변환
     """
+    seconds = max(0.0, float(seconds))
     total_frames = int(round(seconds * 29.97))
     
     D = total_frames // 17982
@@ -77,13 +78,13 @@ def seconds_to_df_timecode(seconds: float) -> str:
     total_seconds = total_frames // 30
     ss = total_seconds % 60
     total_minutes = total_seconds // 60
-    mm = total_minutes // 60
+    mm = total_minutes % 60
     hh = total_minutes // 60
 
     return f"{hh:02d}:{mm:02d}:{ss:02d};{frames:02d}"
 
 def seconds_to_min_sec(seconds: float) -> str:
-    """초를 mm:ss 형식으로 변환 (프롬프트 전달용)"""
+    """초를 mm:ss 형식으로 변환 (UI 표시용)"""
     m, s = divmod(int(seconds), 60)
     return f"{m:02d}:{s:02d}"
 
@@ -123,9 +124,37 @@ def run_whisper_stt(client: Groq, audio_path: str):
         )
     return transcription.segments
 
+def sanitize_and_fix_highlights(raw_highlights: list) -> list:
+    """
+    시작/종료 시간 역전 오류 자동 교환 및 최소 구간 보정 검수 함수
+    """
+    fixed_list = []
+    for item in raw_highlights:
+        try:
+            s_time = float(item.get("start_time", 0.0))
+            e_time = float(item.get("end_time", 0.0))
+
+            # 1. 시작 시간이 종료 시간보다 큰 경우 자동 교환 (Swap)
+            if s_time > e_time:
+                s_time, e_time = e_time, s_time
+
+            duration = e_time - s_time
+
+            # 2. 동일 시간 또는 음수 예외 처리 (최소 15초 세팅)
+            if duration < 5.0:
+                e_time = s_time + 30.0
+
+            item["start_time"] = round(s_time, 2)
+            item["end_time"] = round(e_time, 2)
+            fixed_list.append(item)
+        except Exception:
+            continue
+
+    return fixed_list
+
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list:
     """
-    정밀 타임코드 파싱 로직이 강화된 Gemini 하이라이트 추출
+    타임코드 검수 로직이 강화된 Gemini 하이라이트 추출
     """
     client = genai.Client(api_key=gemini_api_key)
     
@@ -148,7 +177,7 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
     if not final_models:
         final_models = preferred_models
 
-    # 타임코드 가독성 정제 (AI가 시작/끝 지점을 완벽하게 인식하도록 매핑)
+    # 타임코드 매핑
     formatted_transcript = []
     for seg in segments:
         s_sec = round(seg.get("start", 0), 2)
@@ -163,11 +192,11 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
 너는 뉴스 방송 수석 에디터이자 숏폼(YouTube Shorts, TikTok) 전문 크리에이터이다.
 아래 제공된 뉴스 자막 데이터(타임코드 포함)를 철저히 분석하여, 숏폼으로 제작하기 가장 매력적인 구간 3곳을 선정하라.
 
-[핵심 지침 - 타임코드 정밀 측정]
-1. 각 하이라이트 구간의 총 길이는 **반드시 30초 이상 60초 이하**이어야 한다.
-2. `start_time`은 시작하는 첫 자막의 시작 시간(초 숫자)을 정확히 가져와야 한다.
-3. `end_time`은 끝나는 마지막 자막의 종료 시간(초 숫자)을 정확히 가져와야 한다. (계산 수식: end_time - start_time = 30~60초)
-4. 문장이 중간에 어색하게 끊기지 않고 완전한 맥락을 이루도록 자막 블록들을 연속적으로 묶어서 선택하라.
+[핵심 지침 - 타임코드 필수 규칙]
+1. `start_time`은 반드시 `end_time`보다 엄격히 작은 숫자(초 단위 실수)이어야 한다. (절대 start_time > end_time 이면 안 됨)
+2. 각 하이라이트 구간의 총 길이(end_time - start_time)는 반드시 30초 이상 60초 이하이어야 한다.
+3. `start_time`은 시작 자막의 시작 시간, `end_time`은 끝 자막의 종료 시간을 그대로 가져와야 한다.
+4. 문장이 어색하게 끊기지 않고 완전한 맥락을 이루는 구간을 선택하라.
 
 [뉴스 자막 데이터]
 {transcript_text}
@@ -182,14 +211,14 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
                 "properties": {
                     "main_title": {"type": "STRING", "description": "메인 타이틀 (15자 이내)"},
                     "sub_title": {"type": "STRING", "description": "핵심 요약 (25자 이내)"},
-                    "start_time": {"type": "NUMBER", "description": "구간 시작 시간 (실수 초 단위)"},
-                    "end_time": {"type": "NUMBER", "description": "구간 종료 시간 (실수 초 단위)"},
+                    "start_time": {"type": "NUMBER", "description": "구간 시작 시간 (실수 초 단위, end_time보다 작아야 함)"},
+                    "end_time": {"type": "NUMBER", "description": "구간 종료 시간 (실수 초 단위, start_time보다 커야 함)"},
                     "reason": {"type": "STRING", "description": "선정 이유"}
                 },
                 "required": ["main_title", "sub_title", "start_time", "end_time", "reason"]
             }
         },
-        temperature=0.1  # 정확한 타임코드 추출을 위해 창의성 낮춤
+        temperature=0.1
     )
 
     last_exception = None
@@ -200,20 +229,11 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
                 contents=prompt,
                 config=gen_config
             )
-            data = json.loads(response.text)
+            raw_data = json.loads(response.text)
             
-            # 검증 로직: 30~60초 보정 및 검수
-            valid_highlights = []
-            for item in data:
-                s_t = float(item.get("start_time", 0))
-                e_t = float(item.get("end_time", 0))
-                duration = e_t - s_t
-                
-                # 최소 15초 이상인 경우 수용 (너무 짧게 잡히는 것 방지)
-                if duration >= 15:
-                    valid_highlights.append(item)
-
-            return valid_highlights if valid_highlights else data
+            # 파이썬 레벨에서 시작/종료 역전 교환 및 검수
+            sanitized_data = sanitize_and_fix_highlights(raw_data)
+            return sanitized_data
 
         except Exception as e:
             last_exception = e
@@ -233,7 +253,7 @@ def main():
     gemini_api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
     if not groq_api_key or not gemini_api_key:
-        st.error("⚠️ API 키가 설정되지 않았습니다. Secrets 또는 `.env`에 키를 설정해 주세요.")
+        st.error("⚠️ API 키가 설정되지 않았증니다. Secrets 또는 `.env`에 키를 설정해 주세요.")
         st.stop()
 
     groq_client = Groq(api_key=groq_api_key)
