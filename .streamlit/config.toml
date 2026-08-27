@@ -3,13 +3,18 @@ maxUploadSize = 1024
 
 [theme]
 base = "light"
-primaryColor = "#BE123C"
-backgroundColor = "#F4F5F7"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#12151C"
-font = "sans serif"
 
-# 참고: [theme] 섹션을 명시적으로 지정하면 Streamlit 우측 상단 메뉴에서
-# 사용자가 "Settings > Theme"으로 다크 모드 등 다른 테마로 전환하는 옵션 자체가
-# 비활성화됩니다. app.py의 색상 대비 값들이 이 고정된 라이트 테마를 전제로
-# 계산되었으므로, 이 파일을 함께 배포해야 대비 붕괴를 완전히 방지할 수 있습니다.
+# 브랜드 포인트 컬러
+primaryColor = "#BE123C"
+
+# 전체 앱 배경
+backgroundColor = "#F4F5F7"
+
+# 카드 / 입력창 / 사이드바 등의 배경
+secondaryBackgroundColor = "#FFFFFF"
+
+# 기본 텍스트
+textColor = "#12151C"
+
+# 폰트
+font = "sans serif"
