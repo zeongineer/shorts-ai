@@ -32,12 +32,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ------------------------------------------------------------------------------
-# 2. 유틸리티 함수: FFmpeg 오디오 전처리
+# 2. 유틸리티 함수: FFmpeg 오디오 전처리 (대용량 고효율 압축)
 # ------------------------------------------------------------------------------
 def prepare_audio_for_groq(input_file_path: str) -> str:
     """
-    업로드된 비디오/오디오 파일을 Groq API 전송 기준(25MB 이하)에 맞춰
-    초고속 압축(MP3, 16kHz, 64kbps, 모노) 진행
+    1GB급 대용량 영상/음성 파일을 Groq API 전송 기준(25MB 이하)에 맞춰
+    고효율 압축(MP3, 16kHz, 32kbps, 모노) 진행
     """
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -49,7 +49,7 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
         "-vn",                   # 비디오 스트림 제거
         "-ar", "16000",          # 샘플링 레이트 16kHz
         "-ac", "1",              # 모노 채널
-        "-b:a", "64k",           # 비트레이트 64kbps
+        "-b:a", "32k",           # 비트레이트 32kbps (용량 최소화)
         "-f", "mp3",
         output_path
     ]
@@ -130,30 +130,25 @@ def run_whisper_stt(client: Groq, audio_path: str):
 
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list:
     """
-    Gemini 최신 추천 모델(gemini-3.6-flash 및 동적 활성 모델)을 사용하여
-    Schema Enforcement 적용 후 하이라이트 추천
+    Gemini 최신 추천 모델을 사용하여 Schema Enforcement 적용 후 하이라이트 추천
     """
     client = genai.Client(api_key=gemini_api_key)
     
-    # 1. API 에러 메시지가 공식 안내한 최신 모델 우선 배치
     preferred_models = [
         "gemini-3.6-flash",
         "gemini-2.5-flash",
         "gemini-2.0-flash"
     ]
     
-    # 2. 계정 내 활성화된 모델 목록 동적 조회
     active_models = []
     try:
         for m in client.models.list():
             model_id = getattr(m, 'name', '') or str(m)
-            # 'models/' 접두사 정제
             clean_id = model_id.replace("models/", "")
             active_models.append(clean_id)
     except Exception:
         pass
 
-    # 우선순위 목록 중 실제 활성화된 모델 선택 (조회 실패 시 preferred_models 유지)
     final_models = [m for m in preferred_models if m in active_models]
     if not final_models:
         final_models = preferred_models
@@ -218,10 +213,9 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list
 # ------------------------------------------------------------------------------
 def main():
     st.title("🎬 뉴스 숏폼 하이라이트 자동 추출기")
-    st.caption("Groq Whisper STT + Gemini AI 기반 EDIUS 연동 EDL 생성 서비스")
+    st.caption("Groq Whisper STT + Gemini AI 기반 EDIUS 연동 EDL 생성 서비스 (최대 1GB 지원)")
     st.divider()
 
-    # API 키 검증 (Secrets 또는 .env 로드)
     groq_api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
     gemini_api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
@@ -232,9 +226,9 @@ def main():
     groq_client = Groq(api_key=groq_api_key)
 
     uploaded_file = st.file_uploader(
-        "뉴스 음성 또는 영상 파일을 업로드하세요",
+        "뉴스 음성 또는 영상 파일을 업로드하세요 (최대 1GB)",
         type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
-        help="지원 형식: MP3, MP4, TS, MOV, M4A, WAV"
+        help="지원 형식: MP3, MP4, TS, MOV, M4A, WAV (최대 1024MB)"
     )
 
     if uploaded_file is not None:
@@ -245,19 +239,28 @@ def main():
             status_text = st.empty()
 
             try:
-                # 1단계: 임시 파일 저장 및 FFmpeg 전처리
-                status_text.text("1/4. 파일 전처리 및 오디오 최적화 진행 중...")
-                progress_bar.progress(15)
+                # 1단계: 대용량 청크 분할 스트리밍 저장 (메모리 OOM 방지)
+                status_text.text("1/4. 대용량 파일 스트리밍 저장 및 오디오 최적화 진행 중...")
+                progress_bar.progress(10)
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp:
-                    tmp.write(uploaded_file.getbuffer())
+                suffix = f".{uploaded_file.name.split('.')[-1]}"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    # 8MB 청크 단위 스트리밍 작성
+                    chunk_size = 8 * 1024 * 1024
+                    while True:
+                        chunk = uploaded_file.read(chunk_size)
+                        if not chunk:
+                            break
+                        tmp.write(chunk)
                     raw_input_path = tmp.name
 
+                # FFmpeg 압축
+                progress_bar.progress(25)
                 processed_audio_path = prepare_audio_for_groq(raw_input_path)
 
                 # 2단계: Groq Whisper STT
                 status_text.text("2/4. Groq Whisper STT 타임코드 추출 중...")
-                progress_bar.progress(45)
+                progress_bar.progress(50)
                 segments = run_whisper_stt(groq_client, processed_audio_path)
 
                 # 3단계: Gemini AI 하이라이트 추천
