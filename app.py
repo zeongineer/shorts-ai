@@ -555,8 +555,6 @@ def main():
                     os.remove(path)
                 except OSError:
                     pass
-Bash
-APP_DEBUG=true
 
 if __name__ == "__main__":
     main()
