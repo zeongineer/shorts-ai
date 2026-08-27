@@ -1,17 +1,20 @@
 import os
-import re
-import tempfile
 import json
-from dotenv import load_dotenv
+import subprocess
+import tempfile
+from typing import Any
+
 import streamlit as st
+from dotenv import load_dotenv
 from groq import Groq
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
+
 
 # ==============================================================================
-# 1. 초기 환경 설정 및 페이지 레이아웃
+# 1. 환경 설정
 # ==============================================================================
+
 load_dotenv()
 
 st.set_page_config(
@@ -21,343 +24,1169 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ------------------------------------------------------------------------------
-# 다크 모드 전문 편집 툴 UI 스타일링 (CSS)
-# ------------------------------------------------------------------------------
-CUSTOM_CSS = """
-<style>
-    :root {
-        --bg-primary: #0F172A;
-        --bg-secondary: #1E293B;
-        --bg-card: #182234;
-        --accent-color: #10B981;
-        --accent-hover: #059669;
-        --text-primary: #F8FAFC;
-        --text-secondary: #94A3B8;
-        --border-color: #334155;
-    }
 
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    .stApp {
-        background-color: var(--bg-primary);
-        color: var(--text-primary);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
+# ==============================================================================
+# 2. 접근성을 고려한 기본 UI
+# ==============================================================================
 
-    h1 {
-        font-weight: 700 !important;
-        letter-spacing: -0.02em !important;
-        color: #F8FAFC !important;
-        padding-bottom: 0.5rem;
-    }
+st.title("뉴스 숏폼 하이라이트 자동 추출기")
 
-    .stMarkdown p {
-        color: var(--text-secondary);
-        font-size: 0.95rem;
-        line-height: 1.6;
-    }
+st.write(
+    "뉴스 음성 또는 영상 파일을 업로드하면 "
+    "Groq Whisper로 자막과 타임코드를 추출하고, "
+    "Gemini AI가 숏폼 제작에 적합한 구간을 선정합니다."
+)
 
-    div[data-testid="stForm"], 
-    div[data-testid="stExpander"] {
-        background-color: var(--bg-card) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: 8px !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-    }
+st.info(
+    "처리 결과는 EDIUS에서 사용할 수 있는 EDL 파일로 다운로드할 수 있습니다."
+)
 
-    section[data-testid="stFileUploadDropzone"] {
-        background-color: var(--bg-secondary) !important;
-        border: 2px dashed var(--border-color) !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease;
-    }
-    section[data-testid="stFileUploadDropzone"]:hover {
-        border-color: var(--accent-color) !important;
-    }
-
-    .stButton > button {
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease !important;
-    }
-
-    .stButton > button[kind="primary"] {
-        background-color: var(--accent-color) !important;
-        border: none !important;
-        color: #FFFFFF !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background-color: var(--accent-hover) !important;
-        box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
-    }
-
-    div[data-testid="stDownloadButton"] > button {
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
-        border: none !important;
-        border-radius: 6px !important;
-        font-weight: 600 !important;
-    }
-    div[data-testid="stDownloadButton"] > button:hover {
-        background-color: #1D4ED8 !important;
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
-    }
-
-    .streamlit-expanderHeader {
-        background-color: var(--bg-secondary) !important;
-        color: var(--text-primary) !important;
-        font-weight: 600 !important;
-        border-radius: 6px !important;
-    }
-
-    div[data-testid="stStatusWidget"] {
-        background-color: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-        border-radius: 8px !important;
-    }
-
-    .stAlert {
-        background-color: var(--bg-secondary) !important;
-        border: 1px solid var(--border-color) !important;
-        color: var(--text-primary) !important;
-        border-radius: 6px !important;
-    }
-</style>
-"""
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+st.divider()
 
 
 # ==============================================================================
-# 2. 데이터 구조 및 유틸리티 함수 (타임코드 및 EDL 생성)
+# 3. 유틸리티 함수
 # ==============================================================================
-class HighlightItem(BaseModel):
-    title: str = Field(description="하이라이트 구간의 핵심 요약 제목")
-    start_time: float = Field(description="시작 시간(초 단위)")
-    end_time: float = Field(description="종료 시간(초 단위)")
-    reason: str = Field(description="해당 구간을 선택한 이유")
 
-class HighlightResponse(BaseModel):
-    highlights: list[HighlightItem]
+def prepare_audio_for_groq(input_file_path: str) -> str:
+    """
+    대용량 영상/음성 파일을 Groq API 전송 기준에 맞춰
+    16kHz / mono / 32kbps MP3로 변환한다.
+    """
 
+    output_temp_file = tempfile.NamedTemporaryFile(
+        delete=False,
+        suffix=".mp3",
+    )
 
-def seconds_to_df_timecode(seconds: float, fps: float = 29.97) -> str:
-    """초 단위 시간을 29.97 Drop-Frame 타임코드(HH:MM:SS;FF) 형태로 변환합니다."""
-    total_frames = int(round(seconds * fps))
+    output_path = output_temp_file.name
+    output_temp_file.close()
 
-    # Drop frame 규칙 계산 (29.97 fps)
-    frames_per_10min = int(round(10 * 60 * fps))  # 17982
-    frames_per_min = int(round(60 * fps - 2))     # 1798
-    
-    d = total_frames // frames_per_10min
-    m = total_frames % frames_per_10min
-
-    if m >= 2:
-        total_frames += 18 * d + 2 * ((m - 2) // frames_per_min)
-    else:
-        total_frames += 18 * d
-
-    frames = total_frames % 30
-    total_seconds = total_frames // 30
-    ss = total_seconds % 60
-    total_minutes = total_seconds // 60
-    mm = total_minutes % 60
-    hh = total_minutes // 60
-
-    return f"{hh:02d}:{mm:02d}:{ss:02d};{frames:02d}"
-
-
-def generate_edl(highlights: list[HighlightItem], reel_name: str = "AX0101") -> str:
-    """추출된 하이라이트 목록을 EDIUS 호환 CMX 3600 포맷의 EDL 문자열로 변환합니다."""
-    edl_lines = [
-        f"TITLE: NEWS_HIGHLIGHTS",
-        f"FCM: DROP FRAME",
-        ""
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_file_path,
+        "-vn",
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-b:a",
+        "32k",
+        "-f",
+        "mp3",
+        output_path,
     ]
 
-    record_time = 0.0  # 타임라인 기준 누적 기록 시간
+    try:
+        subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
 
-    for idx, item in enumerate(highlights, start=1):
-        src_in = item.start_time
-        src_out = item.end_time
-        duration = src_out - src_in
+        return output_path
 
-        rec_in = record_time
-        rec_out = record_time + duration
+    except subprocess.CalledProcessError as e:
+        if os.path.exists(output_path):
+            os.remove(output_path)
 
-        tc_src_in = seconds_to_df_timecode(src_in)
-        tc_src_out = seconds_to_df_timecode(src_out)
-        tc_rec_in = seconds_to_df_timecode(rec_in)
-        tc_rec_out = seconds_to_df_timecode(rec_out)
+        error_message = e.stderr.decode(
+            "utf-8",
+            errors="ignore",
+        )
 
-        # EDL Event Line (V: Video, C: Cut)
-        event_line = f"{idx:03d}  {reel_name:<8} V     C        {tc_src_in} {tc_src_out} {tc_rec_in} {tc_rec_out}"
-        comment_line = f"* FROM CLIP COMMENT: {item.title}"
+        raise RuntimeError(
+            f"오디오 변환에 실패했습니다.\n{error_message}"
+        )
 
-        edl_lines.append(event_line)
-        edl_lines.append(comment_line)
+
+def seconds_to_df_timecode(seconds: float) -> str:
+    """
+    초 단위 시간을 NTSC Drop Frame Timecode
+    29.97fps / HH:MM:SS;FF 형식으로 변환한다.
+    """
+
+    seconds = max(0.0, float(seconds))
+
+    total_frames = int(round(seconds * 29.97))
+
+    D = total_frames // 17982
+    M = total_frames % 17982
+
+    if M >= 2:
+        total_frames += (
+            18 * D
+            + 2 * ((M - 2) // 1798)
+        )
+    else:
+        total_frames += 18 * D
+
+    frames = total_frames % 30
+
+    total_seconds = total_frames // 30
+    ss = total_seconds % 60
+
+    total_minutes = total_seconds // 60
+    mm = total_minutes % 60
+
+    hh = total_minutes // 60
+
+    return (
+        f"{hh:02d}:"
+        f"{mm:02d}:"
+        f"{ss:02d};"
+        f"{frames:02d}"
+    )
+
+
+def seconds_to_min_sec(seconds: float) -> str:
+    """
+    UI 표시용 mm:ss 변환.
+    """
+
+    seconds = max(0, int(seconds))
+
+    minutes, seconds = divmod(
+        seconds,
+        60,
+    )
+
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def get_media_duration(file_path: str) -> float:
+    """
+    FFprobe를 이용해 원본 미디어의 전체 재생 시간을 가져온다.
+    """
+
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        file_path,
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True,
+        )
+
+        return float(result.stdout.strip())
+
+    except (
+        subprocess.CalledProcessError,
+        ValueError,
+    ):
+        return 0.0
+
+
+def generate_edl(
+    highlights: list,
+    reel_name: str = "AX0101",
+) -> str:
+    """
+    EDIUS 연동 CMX 3600 EDL 생성.
+    """
+
+    edl_lines = [
+        "TITLE: NEWS_SHORTFORM_HIGHLIGHTS",
+        "FMT: NTSC DF",
+        "",
+    ]
+
+    for idx, item in enumerate(
+        highlights,
+        1,
+    ):
+        start_time = float(
+            item.get(
+                "start_time",
+                0.0,
+            )
+        )
+
+        end_time = float(
+            item.get(
+                "end_time",
+                0.0,
+            )
+        )
+
+        src_in = seconds_to_df_timecode(
+            start_time
+        )
+
+        src_out = seconds_to_df_timecode(
+            end_time
+        )
+
+        main_title = str(
+            item.get(
+                "main_title",
+                "Highlight",
+            )
+        )
+
+        sub_title = str(
+            item.get(
+                "sub_title",
+                "",
+            )
+        )
+
+        edl_lines.append(
+            f"{idx:03d}  "
+            f"{reel_name:<8} "
+            f"AA/V  C        "
+            f"{src_in} "
+            f"{src_out} "
+            f"{src_in} "
+            f"{src_out}"
+        )
+
+        edl_lines.append(
+            f"* FROM CLIP: {main_title}"
+        )
+
+        edl_lines.append(
+            f"* COMMENTS: {sub_title}"
+        )
+
         edl_lines.append("")
-
-        record_time = rec_out
 
     return "\n".join(edl_lines)
 
 
 # ==============================================================================
-# 3. 파이프라인 처리 함수 (Groq STT & Gemini API)
+# 4. Whisper STT
 # ==============================================================================
-def process_audio_stt(file_path: str) -> str:
-    """Groq Whisper API를 사용하여 오디오 파일에서 타임코드가 포함된 자막을 추출합니다."""
-    client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-    
-    with open(file_path, "rb") as file:
+
+def run_whisper_stt(
+    client: Groq,
+    audio_path: str,
+):
+    """
+    Groq Whisper API를 호출하여
+    타임코드가 포함된 verbose_json을 반환한다.
+    """
+
+    with open(
+        audio_path,
+        "rb",
+    ) as file:
+
         transcription = client.audio.transcriptions.create(
-            file=(os.path.basename(file_path), file.read()),
+            file=(
+                os.path.basename(audio_path),
+                file.read(),
+            ),
             model="whisper-large-v3",
             response_format="verbose_json",
-            timestamp_granularities=["segment"],
-            language="ko"
+            language="ko",
         )
-    
-    # 세그먼트별 타임코드와 텍스트 조합
-    formatted_transcript = ""
-    for segment in transcription.segments:
-        start = segment.get('start', 0.0)
-        end = segment.get('end', 0.0)
-        text = segment.get('text', '')
-        formatted_transcript += f"[{start:.2f}s -> {end:.2f}s] {text}\n"
-        
-    return formatted_transcript
+
+    return transcription.segments
 
 
-def extract_highlights_gemini(transcript: str) -> HighlightResponse:
-    """Gemini Structured Output을 활용해 영상의 주요 하이라이트 구간을 분석 및 추출합니다."""
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+# ==============================================================================
+# 5. 하이라이트 데이터 검증
+# ==============================================================================
+
+def sanitize_and_fix_highlights(
+    raw_highlights: list,
+    media_duration: float = 0.0,
+) -> list:
+    """
+    Gemini 결과를 Python 단계에서 다시 검증한다.
+
+    WCAG와 직접적인 관련은 없지만,
+    사용자에게 잘못된 시간 정보를 보여주는 것을 방지하기 위한
+    데이터 무결성 검증이다.
+    """
+
+    fixed_list = []
+
+    if not isinstance(
+        raw_highlights,
+        list,
+    ):
+        return fixed_list
+
+    for item in raw_highlights:
+
+        if not isinstance(
+            item,
+            dict,
+        ):
+            continue
+
+        try:
+            start_time = float(
+                item.get(
+                    "start_time",
+                    0.0,
+                )
+            )
+
+            end_time = float(
+                item.get(
+                    "end_time",
+                    0.0,
+                )
+            )
+
+            # ----------------------------------------------------------
+            # 1. 음수 방지
+            # ----------------------------------------------------------
+
+            start_time = max(
+                0.0,
+                start_time,
+            )
+
+            end_time = max(
+                0.0,
+                end_time,
+            )
+
+            # ----------------------------------------------------------
+            # 2. 시작/종료 역전 방지
+            # ----------------------------------------------------------
+
+            if start_time > end_time:
+                start_time, end_time = (
+                    end_time,
+                    start_time,
+                )
+
+            # ----------------------------------------------------------
+            # 3. 미디어 길이를 넘어가는 경우 제한
+            # ----------------------------------------------------------
+
+            if media_duration > 0:
+
+                start_time = min(
+                    start_time,
+                    media_duration,
+                )
+
+                end_time = min(
+                    end_time,
+                    media_duration,
+                )
+
+            duration = (
+                end_time - start_time
+            )
+
+            # ----------------------------------------------------------
+            # 4. 최소 30초 조건
+            # ----------------------------------------------------------
+
+            if duration < 30.0:
+
+                candidate_end = (
+                    start_time + 30.0
+                )
+
+                if (
+                    media_duration > 0
+                    and candidate_end > media_duration
+                ):
+                    continue
+
+                end_time = candidate_end
+
+            # ----------------------------------------------------------
+            # 5. 최대 60초 조건
+            # ----------------------------------------------------------
+
+            duration = (
+                end_time - start_time
+            )
+
+            if duration > 60.0:
+                end_time = (
+                    start_time + 60.0
+                )
+
+            # ----------------------------------------------------------
+            # 6. 최종 검증
+            # ----------------------------------------------------------
+
+            duration = (
+                end_time - start_time
+            )
+
+            if not (
+                start_time < end_time
+            ):
+                continue
+
+            if not (
+                30.0 <= duration <= 60.0
+            ):
+                continue
+
+            item["start_time"] = round(
+                start_time,
+                2,
+            )
+
+            item["end_time"] = round(
+                end_time,
+                2,
+            )
+
+            fixed_list.append(item)
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            continue
+
+    return fixed_list
+
+
+# ==============================================================================
+# 6. Gemini 하이라이트 추출
+# ==============================================================================
+
+def run_gemini_highlight_extraction(
+    gemini_api_key: str,
+    segments: list,
+    media_duration: float = 0.0,
+) -> list:
+
+    client = genai.Client(
+        api_key=gemini_api_key
+    )
+
+    preferred_models = [
+        "gemini-3.6-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+    ]
+
+    active_models = []
+
+    try:
+
+        for model in client.models.list():
+
+            model_id = (
+                getattr(
+                    model,
+                    "name",
+                    "",
+                )
+                or str(model)
+            )
+
+            clean_id = model_id.replace(
+                "models/",
+                "",
+            )
+
+            active_models.append(
+                clean_id
+            )
+
+    except Exception:
+        pass
+
+    final_models = [
+        model
+        for model in preferred_models
+        if model in active_models
+    ]
+
+    if not final_models:
+        final_models = preferred_models
+
+    # ------------------------------------------------------------------
+    # 타임코드가 포함된 transcript 생성
+    # ------------------------------------------------------------------
+
+    formatted_transcript = []
+
+    for segment in segments:
+
+        start = round(
+            float(
+                segment.get(
+                    "start",
+                    0,
+                )
+            ),
+            2,
+        )
+
+        end = round(
+            float(
+                segment.get(
+                    "end",
+                    0,
+                )
+            ),
+            2,
+        )
+
+        text = str(
+            segment.get(
+                "text",
+                "",
+            )
+        ).strip()
+
+        if text:
+
+            formatted_transcript.append(
+                f"[{start:.2f}s ~ {end:.2f}s] {text}"
+            )
+
+    transcript_text = "\n".join(
+        formatted_transcript
+    )
+
+    # ------------------------------------------------------------------
+    # Prompt
+    # ------------------------------------------------------------------
 
     prompt = f"""
-다음은 뉴스/방송 영상의 음성을 텍스트로 변환한 타임코드 기록입니다.
-이 중 숏폼(Shorts/Reels) 콘텐츠로 제작하기에 가장 몰입도가 높고 임팩트 있는 핵심 하이라이트 구간 3~5개를 선정해주세요.
+너는 뉴스 방송 수석 에디터이자
+YouTube Shorts와 TikTok 전문 콘텐츠 에디터이다.
 
-[자막 기록]:
-{transcript}
+아래 뉴스 자막 데이터의 타임코드를 정확하게 분석하여
+숏폼으로 제작하기 가장 적합한 구간 3곳을 선정하라.
 
-[주의사항]:
-- 각 하이라이트 구간의 시작 시간(start_time)과 종료 시간(end_time)은 제공된 자막의 초 단위 시간을 기준으로 정확히 지정하세요.
-- 매력적인 요약 제목과 해당 구간을 선정한 이유를 함께 작성해주세요.
+[필수 규칙]
+
+1. 정확히 3개의 하이라이트를 반환한다.
+
+2. start_time은 반드시 end_time보다 작아야 한다.
+
+3. 각 구간의 길이는 반드시 30초 이상 60초 이하여야 한다.
+
+4. start_time은 선택한 첫 번째 자막의 시작 시간이다.
+
+5. end_time은 선택한 마지막 자막의 종료 시간이다.
+
+6. 문장이 중간에서 잘리지 않아야 한다.
+
+7. 하나의 하이라이트는 하나의 완전한 뉴스 맥락을 가져야 한다.
+
+8. 서로 지나치게 겹치는 구간은 피한다.
+
+9. 타임코드는 반드시 제공된 자막의 타임코드를 기준으로 한다.
+
+10. 영상 전체 길이는 약 {media_duration:.2f}초이다.
+
+[뉴스 자막 데이터]
+
+{transcript_text}
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=HighlightResponse,
-            temperature=0.2,
+    gen_config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema={
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "main_title": {
+                        "type": "STRING",
+                        "description": (
+                            "메인 타이틀. "
+                            "15자 이내."
+                        ),
+                    },
+                    "sub_title": {
+                        "type": "STRING",
+                        "description": (
+                            "핵심 요약. "
+                            "25자 이내."
+                        ),
+                    },
+                    "start_time": {
+                        "type": "NUMBER",
+                        "description": (
+                            "구간 시작 시간. "
+                            "초 단위 실수."
+                        ),
+                    },
+                    "end_time": {
+                        "type": "NUMBER",
+                        "description": (
+                            "구간 종료 시간. "
+                            "초 단위 실수."
+                        ),
+                    },
+                    "reason": {
+                        "type": "STRING",
+                        "description": (
+                            "해당 구간을 "
+                            "선정한 이유."
+                        ),
+                    },
+                },
+                "required": [
+                    "main_title",
+                    "sub_title",
+                    "start_time",
+                    "end_time",
+                    "reason",
+                ],
+            },
+        },
+        temperature=0.1,
+    )
+
+    last_exception = None
+
+    for model_name in final_models:
+
+        try:
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=gen_config,
+            )
+
+            raw_data = json.loads(
+                response.text
+            )
+
+            sanitized_data = (
+                sanitize_and_fix_highlights(
+                    raw_data,
+                    media_duration,
+                )
+            )
+
+            # 정확히 3개가 아니면 다음 모델을 시도
+            if len(sanitized_data) != 3:
+                last_exception = RuntimeError(
+                    "Gemini가 유효한 하이라이트 3개를 반환하지 않았습니다."
+                )
+                continue
+
+            return sanitized_data
+
+        except Exception as error:
+
+            last_exception = error
+
+            continue
+
+    raise RuntimeError(
+        "하이라이트 추출에 실패했습니다. "
+        "잠시 후 다시 시도해 주세요."
+    ) from last_exception
+
+
+# ==============================================================================
+# 7. API 키 확인
+# ==============================================================================
+
+def get_api_keys():
+    """
+    Streamlit Secrets 또는 .env에서 API 키를 가져온다.
+    """
+
+    groq_api_key = (
+        st.secrets.get(
+            "GROQ_API_KEY",
+            None,
+        )
+        or os.getenv(
+            "GROQ_API_KEY"
+        )
+    )
+
+    gemini_api_key = (
+        st.secrets.get(
+            "GEMINI_API_KEY",
+            None,
+        )
+        or os.getenv(
+            "GEMINI_API_KEY"
+        )
+    )
+
+    return (
+        groq_api_key,
+        gemini_api_key,
+    )
+
+
+# ==============================================================================
+# 8. 메인 UI
+# ==============================================================================
+
+def main():
+
+    groq_api_key, gemini_api_key = (
+        get_api_keys()
+    )
+
+    if not groq_api_key or not gemini_api_key:
+
+        st.error(
+            "API 키가 설정되지 않았습니다."
+        )
+
+        st.write(
+            "관리자에게 GROQ_API_KEY와 "
+            "GEMINI_API_KEY 설정을 요청해 주세요."
+        )
+
+        st.stop()
+
+    groq_client = Groq(
+        api_key=groq_api_key
+    )
+
+    # ------------------------------------------------------------------
+    # 파일 업로드
+    # ------------------------------------------------------------------
+
+    st.header("1. 뉴스 파일 업로드")
+
+    st.write(
+        "지원 파일 형식: MP3, MP4, TS, MOV, M4A, WAV"
+    )
+
+    st.write(
+        "최대 업로드 용량: 1GB"
+    )
+
+    uploaded_file = st.file_uploader(
+        "뉴스 음성 또는 영상 파일을 선택하세요.",
+        type=[
+            "mp3",
+            "mp4",
+            "ts",
+            "mov",
+            "m4a",
+            "wav",
+        ],
+        help=(
+            "뉴스 음성 또는 영상 파일을 "
+            "선택하면 하이라이트 구간을 자동으로 분석합니다."
         ),
     )
 
-    return HighlightResponse.model_validate_json(response.text)
+    if uploaded_file is None:
 
-
-# ==============================================================================
-# 4. Streamlit UI 메인 화면 구성
-# ==============================================================================
-st.title("🎬 뉴스 숏폼 하이라이트 자동 추출기")
-st.markdown("영상/음성 파일을 업로드하면 **STT 음성 인식 $\\rightarrow$ AI 핵심 구간 분석 $\\rightarrow$ EDIUS EDL 파일**까지 자동으로 생성합니다.")
-
-st.divider()
-
-# API 키 확인
-groq_key = os.environ.get("GROQ_API_KEY")
-gemini_key = os.environ.get("GEMINI_API_KEY")
-
-if not groq_key or not gemini_key:
-    st.error("⚠️ `.env` 파일에 `GROQ_API_KEY`와 `GEMINI_API_KEY`가 설정되어 있는지 확인해주세요.")
-    st.stop()
-
-# 파일 업로더
-uploaded_file = st.file_uploader(
-    "클립 편집에 사용할 미디어 파일을 선택하세요", 
-    type=["mp3", "mp4", "m4a", "wav"],
-    help="지원 형식: MP3, MP4, M4A, WAV"
-)
-
-# Reel ID 지정 (EDIUS 콘폼용)
-col_opt1, col_opt2 = st.columns([1, 2])
-with col_opt1:
-    reel_id = st.text_input("Reel ID (EDL 릴 이름)", value="AX0101", max_chars=8)
-
-if uploaded_file is not None:
-    if st.button("🚀 하이라이트 추출 시작", type="primary", use_container_width=True):
-        
-        with st.status("하이라이트 파이프라인 작동 중...", expanded=True) as status:
-            # 1. 임시 파일 저장
-            st.write("📁 미디어 임시 저장 중...")
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
-                tmp_file.write(uploaded_file.getvalue())
-                tmp_file_path = tmp_file.name
-
-            try:
-                # 2. STT 음성 인식 (Groq)
-                st.write("🎙️ Groq Whisper API로 타임코드 및 자막 추출 중...")
-                transcript = process_audio_stt(tmp_file_path)
-                st.session_state["transcript"] = transcript
-
-                # 3. AI 구간 분석 (Gemini)
-                st.write("🧠 Gemini 2.5 Flash 기반 핵심 구간 분석 중...")
-                highlight_data = extract_highlights_gemini(transcript)
-                st.session_state["highlights"] = highlight_data.highlights
-
-                # 4. EDL 변환
-                st.write("🎞️ EDIUS EDL 타임코드 데이터 생성 중...")
-                edl_content = generate_edl(highlight_data.highlights, reel_name=reel_id)
-                st.session_state["edl_content"] = edl_content
-
-                status.update(label="✅ 하이라이트 분석 및 EDL 생성 완료!", state="complete", expanded=False)
-
-            except Exception as e:
-                status.update(label="❌ 오류 발생", state="error")
-                st.error(f"처리 중 오류가 발생했습니다: {e}")
-            finally:
-                if os.path.exists(tmp_file_path):
-                    os.remove(tmp_file_path)
-
-# ==============================================================================
-# 5. 분석 결과 출력 및 EDL 다운로드
-# ==============================================================================
-if "highlights" in st.session_state and st.session_state["highlights"]:
-    st.divider()
-    
-    col_left, col_right = st.columns([3, 2])
-
-    with col_left:
-        st.subheader("📌 추출된 하이라이트 리스트")
-        for idx, item in enumerate(st.session_state["highlights"], 1):
-            start_tc = seconds_to_df_timecode(item.start_time)
-            end_tc = seconds_to_df_timecode(item.end_time)
-            
-            with st.expander(f"**[{idx}] {item.title}** ({start_tc} ~ {end_tc})", expanded=True):
-                st.write(f"**구간:** `{item.start_time:.2f}s` ~ `{item.end_time:.2f}s` ({item.end_time - item.start_time:.1f}초 동안)")
-                st.write(f"**선정 사유:** {item.reason}")
-
-    with col_right:
-        st.subheader("📥 EDIUS EDL 출력")
-        st.caption("아래 EDL 파일을 다운로드하여 EDIUS / Premiere Pro 타임라인으로 바로 가져오기 하세요.")
-        
-        # EDL 텍스트 미리보기
-        st.text_area("EDL 파일 내용 미리보기", value=st.session_state["edl_content"], height=220)
-
-        # EDL 다운로드 버튼
-        st.download_button(
-            label="💾 EDL 파일 다운로드 (.edl)",
-            data=st.session_state["edl_content"],
-            file_name=f"{os.path.splitext(uploaded_file.name)[0]}_highlights.edl",
-            mime="text/plain",
-            use_container_width=True
+        st.info(
+            "분석할 뉴스 파일을 선택하면 "
+            "하이라이트 추출을 시작할 수 있습니다."
         )
 
-    # 전체 STT 기록 확인
-    with st.expander("📄 전체 자막 (Groq Whisper STT 결과) 확인"):
-        st.text_area("전체 자막", value=st.session_state.get("transcript", ""), height=250)
+        return
+
+    # ------------------------------------------------------------------
+    # 업로드 정보
+    # ------------------------------------------------------------------
+
+    file_size_mb = (
+        uploaded_file.size
+        / (1024 * 1024)
+    )
+
+    st.success(
+        f"파일이 선택되었습니다: "
+        f"{uploaded_file.name}"
+    )
+
+    st.write(
+        f"파일 크기: {file_size_mb:.2f}MB"
+    )
+
+    # ------------------------------------------------------------------
+    # 실제 업로드 제한 검사
+    # ------------------------------------------------------------------
+
+    max_file_size = (
+        1024 * 1024 * 1024
+    )
+
+    if uploaded_file.size > max_file_size:
+
+        st.error(
+            "파일 크기가 1GB를 초과합니다. "
+            "1GB 이하의 파일을 선택해 주세요."
+        )
+
+        return
+
+    # ------------------------------------------------------------------
+    # 실행 버튼
+    # ------------------------------------------------------------------
+
+    st.header("2. 하이라이트 분석")
+
+    start_button = st.button(
+        "하이라이트 추출 및 EDL 생성 시작",
+        type="primary",
+        use_container_width=True,
+        help=(
+            "업로드한 뉴스 파일을 분석하여 "
+            "숏폼 하이라이트와 EDL 파일을 생성합니다."
+        ),
+    )
+
+    if not start_button:
+        return
+
+    raw_input_path = None
+    processed_audio_path = None
+
+    try:
+
+        # ==============================================================
+        # 진행 상태
+        # ==============================================================
+
+        with st.status(
+            "뉴스 파일을 분석하고 있습니다.",
+            expanded=True,
+        ) as status:
+
+            # ----------------------------------------------------------
+            # 1단계
+            # ----------------------------------------------------------
+
+            st.write(
+                "1단계: 파일 저장 및 오디오 최적화를 진행합니다."
+            )
+
+            suffix = (
+                "."
+                + uploaded_file.name.split(
+                    "."
+                )[-1]
+            )
+
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=suffix,
+            ) as tmp:
+
+                chunk_size = (
+                    8 * 1024 * 1024
+                )
+
+                while True:
+
+                    chunk = uploaded_file.read(
+                        chunk_size
+                    )
+
+                    if not chunk:
+                        break
+
+                    tmp.write(chunk)
+
+                raw_input_path = (
+                    tmp.name
+                )
+
+            media_duration = (
+                get_media_duration(
+                    raw_input_path
+                )
+            )
+
+            processed_audio_path = (
+                prepare_audio_for_groq(
+                    raw_input_path
+                )
+            )
+
+            st.write(
+                "파일 저장 및 오디오 최적화가 완료되었습니다."
+            )
+
+            # ----------------------------------------------------------
+            # 2단계
+            # ----------------------------------------------------------
+
+            st.write(
+                "2단계: 음성을 분석하여 자막과 타임코드를 추출합니다."
+            )
+
+            segments = run_whisper_stt(
+                groq_client,
+                processed_audio_path,
+            )
+
+            if not segments:
+
+                raise RuntimeError(
+                    "음성에서 자막을 추출하지 못했습니다. "
+                    "음성이 포함된 파일인지 확인해 주세요."
+                )
+
+            st.write(
+                f"자막 구간 {len(segments)}개를 추출했습니다."
+            )
+
+            # ----------------------------------------------------------
+            # 3단계
+            # ----------------------------------------------------------
+
+            st.write(
+                "3단계: AI가 숏폼 하이라이트 구간을 선정합니다."
+            )
+
+            highlights = (
+                run_gemini_highlight_extraction(
+                    gemini_api_key,
+                    segments,
+                    media_duration,
+                )
+            )
+
+            if len(highlights) != 3:
+
+                raise RuntimeError(
+                    "유효한 하이라이트 3개를 "
+                    "생성하지 못했습니다."
+                )
+
+            st.write(
+                "하이라이트 3개를 선정했습니다."
+            )
+
+            # ----------------------------------------------------------
+            # 4단계
+            # ----------------------------------------------------------
+
+            st.write(
+                "4단계: EDIUS용 EDL 파일을 생성합니다."
+            )
+
+            edl_content = generate_edl(
+                highlights
+            )
+
+            st.write(
+                "EDL 파일 생성이 완료되었습니다."
+            )
+
+            status.update(
+                label="뉴스 하이라이트 분석이 완료되었습니다.",
+                state="complete",
+                expanded=False,
+            )
+
+        # ==============================================================
+        # 결과
+        # ==============================================================
+
+        st.header("3. 추천 숏폼 하이라이트")
+
+        st.write(
+            "AI가 선정한 3개의 하이라이트입니다. "
+            "각 구간은 30초 이상 60초 이하로 검증되었습니다."
+        )
+
+        for index, highlight in enumerate(
+            highlights,
+            1,
+        ):
+
+            start_sec = float(
+                highlight.get(
+                    "start_time",
+                    0.0,
+                )
+            )
+
+            end_sec = float(
+                highlight.get(
+                    "end_time",
+                    0.0,
+                )
+            )
+
+            duration = round(
+                end_sec - start_sec,
+                1,
+            )
+
+            title = str(
+                highlight.get(
+                    "main_title",
+                    "하이라이트",
+                )
+            )
+
+            subtitle = str(
+                highlight.get(
+                    "sub_title",
+                    "-",
+                )
+            )
+
+            reason = str(
+                highlight.get(
+                    "reason",
+                    "-",
+                )
+            )
+
+            with st.expander(
+                f"하이라이트 {index}: {title}",
+                expanded=(index == 1),
+            ):
+
+                st.subheader(
+                    f"하이라이트 {index}"
+                )
+
+                st.write(
+                    f"제목: {title}"
+                )
+
+                st.write(
+                    f"요약: {subtitle}"
+                )
+
+                st.write(
+                    "타임코드: "
+                    f"{seconds_to_df_timecode(start_sec)} "
+                    "부터 "
+                    f"{seconds_to_df_timecode(end_sec)}"
+                )
+
+                st.write(
+                    "재생 시간: "
+                    f"{seconds_to_min_sec(start_sec)} "
+                    "부터 "
+                    f"{seconds_to_min_sec(end_sec)} "
+                    f"({duration:.1f}초)"
+                )
+
+                st.write(
+                    f"선정 이유: {reason}"
+                )
+
+        # ==============================================================
+        # 다운로드
+        # ==============================================================
+
+        st.divider()
+
+        st.header("4. EDIUS용 EDL 파일")
+
+        st.write(
+            "아래 버튼을 선택하면 생성된 EDL 파일을 "
+            "다운로드할 수 있습니다."
+        )
+
+        edl_filename = (
+            f"{os.path.splitext(uploaded_file.name)[0]}"
+            "_shortform.edl"
+        )
+
+        st.download_button(
+            label="EDIUS 연동 EDL 파일 다운로드",
+            data=edl_content,
+            file_name=edl_filename,
+            mime="text/plain",
+            use_container_width=True,
+            help=(
+                "생성된 EDIUS용 CMX 3600 EDL 파일을 "
+                "컴퓨터에 저장합니다."
+            ),
+        )
+
+    except Exception as error:
+
+        st.error(
+            "파일을 처리하는 동안 문제가 발생했습니다."
+        )
+
+        st.write(
+            "다음 사항을 확인한 후 다시 시도해 주세요."
+        )
+
+        st.write(
+            "• 파일이 정상적으로 재생되는지 확인하세요."
+        )
+
+        st.write(
+            "• 음성이 포함된 파일인지 확인하세요."
+        )
+
+        st.write(
+            "• 인터넷 연결 상태를 확인하세요."
+        )
+
+        st.write(
+            "• 문제가 계속되면 관리자에게 문의하세요."
+        )
+
+        # 개발 환경에서만 상세 오류 표시
+        if os.getenv(
+            "APP_DEBUG",
+            "false",
+        ).lower() == "true":
+
+            st.exception(error)
+
+    finally:
+
+        # ==============================================================
+        # 임시 파일 삭제
+        # ==============================================================
+
+        if (
+            raw_input_path
+            and os.path.exists(
+                raw_input_path
+            )
+        ):
+            try:
+                os.remove(
+                    raw_input_path
+                )
+            except OSError:
+                pass
+
+        if (
+            processed_audio_path
+            and os.path.exists(
+                processed_audio_path
+            )
+        ):
+            try:
+                os.remove(
+                    processed_audio_path
+                )
+            except OSError:
+                pass
+
+
+# ==============================================================================
+# 9. 실행
+# ==============================================================================
+
+if __name__ == "__main__":
+    main()
