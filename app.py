@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 방송실 대시보드 톤앤매너 CSS
+# 방송실 대시보드 톤앤매너 CSS (unsafe_allow_html=True 로 수정)
 st.markdown("""
 <style>
     .stApp {
@@ -56,7 +56,7 @@ st.markdown("""
         margin-left: 6px;
     }
 </style>
-""", unsafe_text_html=True)
+""", unsafe_allow_html=True)
 
 
 # ==============================================================================
@@ -123,7 +123,7 @@ def seconds_to_min_sec(seconds: float) -> str:
 
 
 def get_media_duration(file_path: str) -> float:
-    """FFprobe로 전체 미디어 재생 길이 측청"""
+    """FFprobe로 전체 미디어 재생 길이 측정"""
     cmd = [
         "ffprobe", "-v", "error",
         "-show_entries", "format=duration",
@@ -425,7 +425,7 @@ def main():
                     <strong>선정 이유:</strong> {item['reason']}
                 </div>
             </div>
-            """, unsafe_text_html=True)
+            """, unsafe_allow_html=True)
 
         st.divider()
         st.subheader("4. EDL 다운로드")
