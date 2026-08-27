@@ -23,136 +23,102 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 세련된 Modern UI & 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
+# 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
 st.markdown(
     """
     <style>
-    /* Google Fonts 불러오기 */
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    
-    html, body, [class*="css"] {
-        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-    }
-
-    /* 메인 대시보드 배경감 지정 */
-    .stApp {
-        background-color: #F8FAFC;
-    }
-
-    /* 헤더 컨테이너 고도화 */
+    /* 색상 대비 4.5:1 이상 준수 */
     .title-container {
-        background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%);
-        border-radius: 16px;
-        padding: 28px 32px;
-        margin-bottom: 1.5rem;
+        background-color: #FFFFFF;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 1.2rem;
         border: 1px solid #E2E8F0;
-        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
     }
     .main-title {
-        font-size: 2.1rem;
-        font-weight: 800;
-        color: #0F172A;
-        margin-bottom: 0.6rem;
-        letter-spacing: -0.02em;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #0F172A; /* 실측 대비 약 17.9:1 */
+        margin-bottom: 0.5rem;
     }
     .sub-title {
         font-size: 1.05rem;
-        color: #475569;
+        color: #334155; /* 실측 대비 약 10.4:1 */
         margin-bottom: 0;
         line-height: 1.6;
-        word-break: keep-all;
     }
-
-    /* 하이라이트 카드 스타일링 개선 */
     .highlight-card {
         background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.04), 0 4px 6px -4px rgba(15, 23, 42, 0.02);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 2px solid #CBD5E1; /* 테두리 명확화 */
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
-    .highlight-card:hover {
-        border-color: #CBD5E1;
-        box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
-    }
-
-    /* 배지 디자인 */
     .badge {
-        background-color: #2563EB;
+        background-color: #1D4ED8; /* 실측 대비 약 6.7:1 */
         color: #FFFFFF;
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 0.8rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.85rem;
         font-weight: 700;
         display: inline-block;
-        margin-bottom: 12px;
-        letter-spacing: 0.05em;
+        margin-bottom: 10px;
     }
-
-    /* 타임코드 레이아웃 */
     .time-info {
-        background-color: #F1F5F9;
-        border-left: 4px solid #2563EB;
-        padding: 14px 18px;
-        font-family: 'JetBrains Mono', monospace, sans-serif;
+        background-color: #F8FAFC;
+        border-left: 5px solid #1D4ED8;
+        padding: 12px 14px;
+        font-family: monospace;
         font-size: 0.95rem;
         color: #0F172A;
-        margin: 16px 0;
-        border-radius: 0 10px 10px 0;
-        line-height: 1.7;
+        margin: 12px 0;
+        border-radius: 0 6px 6px 0;
     }
-
-    /* 포커스 링 */
+    
+    /* 접근 가능한 포커스 링 (WCAG 2.4.7 Focus Visible 준수) */
     .focusable-heading {
-        margin-top: 1.5rem;
-        margin-bottom: 1.2rem;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
         padding: 4px 8px;
         border-radius: 6px;
         color: #0F172A;
-        font-weight: 700;
     }
     .focusable-heading:focus, .focusable-heading:focus-visible {
-        outline: 3px solid #2563EB !important;
+        outline: 3px solid #1D4ED8 !important;
         outline-offset: 3px !important;
     }
 
-    /* 세련된 알림 박스 디자인 */
+    /* 접근 가능한 알림(alert) 박스 */
     .a11y-alert {
-        border-radius: 12px;
-        padding: 16px 20px;
-        margin-bottom: 16px;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
         font-size: 0.95rem;
-        line-height: 1.6;
+        line-height: 1.5;
         border: 1px solid transparent;
-        display: flex;
-        align-items: center;
-        gap: 10px;
     }
     .a11y-alert-info {
         background-color: #EFF6FF;
         border-color: #BFDBFE;
-        color: #1E40AF;
+        color: #1E3A8A;
     }
     .a11y-alert-success {
         background-color: #F0FDF4;
         border-color: #BBF7D0;
-        color: #166534;
+        color: #14532D;
     }
     .a11y-alert-error {
         background-color: #FEF2F2;
         border-color: #FECACA;
-        color: #991B1B;
+        color: #7F1D1D;
     }
     .step-text {
-        color: #1E293B;
+        color: #0F172A;
         font-size: 0.95rem;
-        margin: 6px 0;
-        font-weight: 500;
+        margin: 4px 0;
     }
-
-    /* 접근성 스크린 리더 숨김 */
+    /* 스크린 리더 전용 숨김 클래스 */
     .sr-only {
         position: absolute;
         width: 1px;
@@ -173,6 +139,8 @@ st.markdown(
 # 2. 접근성 유틸리티
 # ==============================================================================
 def set_page_language(lang_code: str = "ko") -> None:
+    """페이지 전체 언어를 명시적으로 지정하여 스크린리더가 올바른 발음 규칙을
+    사용하도록 강제한다."""
     components.html(
         f"""
         <script>
@@ -187,6 +155,7 @@ def set_page_language(lang_code: str = "ko") -> None:
 
 
 def focus_element_by_id(element_id: str) -> None:
+    """지정한 id의 요소로 키보드 포커스를 이동시킨다."""
     components.html(
         f"""
         <script>
@@ -209,6 +178,7 @@ def focus_element_by_id(element_id: str) -> None:
 
 
 def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
+    """접근성 준수 알림 박스 (aria-live 명시)"""
     css_class = {
         "info": "a11y-alert-info",
         "success": "a11y-alert-success",
@@ -222,15 +192,16 @@ def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
         role = "status"
         aria_live = "polite"
 
-    icon_html = f'<span aria-hidden="true" style="font-size: 1.1rem;">{icon}</span>' if icon else ""
+    icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
 
     st.markdown(
-        f'<div class="a11y-alert {css_class}" role="{role}" aria-live="{aria_live}">{icon_html}<div>{message}</div></div>',
+        f'<div class="a11y-alert {css_class}" role="{role}" aria-live="{aria_live}">{icon_html}{message}</div>',
         unsafe_allow_html=True,
     )
 
 
 def accessible_step(message: str, icon: str = "") -> None:
+    """st.status 내부 단계별 안내 문구"""
     icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
     st.markdown(
         f'<p class="step-text" role="status" aria-live="polite">{icon_html}{message}</p>',
@@ -253,7 +224,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 accessible_alert(
-    "추출된 분석 결과는 EDIUS 영상 편집 프로그램과 즉시 연동되는 EDL 파일로 생성됩니다.",
+    "처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
     kind="info",
     icon="💡",
 )
@@ -509,7 +480,7 @@ def main():
 
     groq_client = Groq(api_key=groq_api_key)
 
-    st.subheader("1. 뉴스 파일 업로드")
+    st.header("1. 뉴스 파일 업로드")
     uploaded_file = st.file_uploader(
         "뉴스 음성 또는 영상 파일을 선택하세요.",
         type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
@@ -524,6 +495,7 @@ def main():
         )
         return
 
+    # [개선 3] 파일명 html.escape() 적용으로 XSS 방지 및 DOM 안전성 확보
     safe_filename = html.escape(uploaded_file.name)
     file_size_mb = uploaded_file.size / (1024 * 1024)
     accessible_alert(
@@ -536,7 +508,7 @@ def main():
         accessible_alert("파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.", kind="error")
         return
 
-    st.subheader("2. 하이라이트 분석")
+    st.header("2. 하이라이트 분석")
     start_button = st.button("🚀 하이라이트 추출 및 EDL 생성 시작", type="primary", use_container_width=True)
 
     if not start_button:
@@ -584,6 +556,7 @@ def main():
             unsafe_allow_html=True,
         )
 
+        # [개선 1] focus-visible 포커스 링이 정삼 작동하도록 style="outline:none;" 제거 및 class 추가
         st.markdown(
             '<h2 id="results-heading" class="focusable-heading" tabindex="-1">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
@@ -599,19 +572,20 @@ def main():
             subtitle = html.escape(str(highlight.get("sub_title", "-")))
             reason = html.escape(str(highlight.get("reason", "-")))
 
+            # [개선 2] aria-label을 카드별 고유 타이틀이 포함되도록 동적 구성
             region_aria_label = html.escape(f"{title} 타임코드 및 재생시간 정보")
 
             st.markdown(
                 f"""
                 <article class="highlight-card" aria-labelledby="card-title-{index}">
                     <span class="badge">SHORTFORM #{index}</span>
-                    <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.35rem; font-weight: 700;">{title}</h3>
-                    <p style="margin: 0 0 14px 0; color: #334155; font-weight: 600; font-size: 1rem;">{subtitle}</p>
+                    <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.3rem;">{title}</h3>
+                    <p style="margin: 0 0 12px 0; color: #334155; font-weight: 600;">{subtitle}</p>
                     <div class="time-info" role="region" aria-label="{region_aria_label}">
                         <span aria-hidden="true">⏱️ </span><strong>타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
                         <span aria-hidden="true">⏳ </span><strong>재생시간:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
                     </div>
-                    <p style="margin: 12px 0 0 0; font-size: 0.95rem; color: #475569; line-height: 1.6;">
+                    <p style="margin: 8px 0 0 0; font-size: 0.95rem; color: #334155;">
                         <strong><span aria-hidden="true">💡 </span>선정 이유:</strong> {reason}
                     </p>
                 </article>
@@ -620,7 +594,7 @@ def main():
             )
 
         st.divider()
-        st.subheader("4. EDIUS 연동 파일 다운로드")
+        st.header("4. EDIUS 연동 파일 다운로드")
 
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
@@ -635,7 +609,7 @@ def main():
     except Exception as error:
         accessible_alert("처리 중 오류가 발생했습니다.", kind="error", icon="❌")
         st.markdown(
-            '<ul style="color:#475569; font-size:0.95rem; line-height:1.6;">'
+            '<ul style="color:#334155; font-size:0.95rem;">'
             '<li>오디오 트랙이 정상 포함된 미디어 파일인지 확인해 보세요.</li>'
             '<li>지속적인 실패 발생 시 관리자에게 문의바랍니다.</li>'
             '</ul>',
