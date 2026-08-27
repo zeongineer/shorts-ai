@@ -23,119 +23,77 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 고급 프로페셔널 라이트 테마 스타일링 (WCAG AA 준수, 모던 스튜디오 UI)
+# 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
 st.markdown(
     """
     <style>
-    /* 메인 배경 및 기본 폰트 설정 */
-    .stApp {
-        background-color: #F8FAFC;
-        color: #0F172A;
-    }
-    
-    /* 헤더 카드 스타일링 */
-    .hero-container {
-        background: linear-gradient(135deg, #FFFFFF 0%, #EFF6FF 100%);
+    /* 색상 대비 4.5:1 이상 준수 */
+    .title-container {
+        background-color: #FFFFFF;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 1.2rem;
         border: 1px solid #E2E8F0;
-        border-radius: 16px;
-        padding: 28px 32px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
     }
-    .hero-title {
+    .main-title {
         font-size: 2.2rem;
-        font-weight: 800;
-        color: #0F172A;
-        letter-spacing: -0.02em;
-        margin-bottom: 0.6rem;
-        display: flex;
-        align-items: center;
-        gap: 12px;
+        font-weight: 700;
+        color: #0F172A; /* 실측 대비 약 17.9:1 */
+        margin-bottom: 0.5rem;
     }
-    .hero-subtitle {
+    .sub-title {
         font-size: 1.05rem;
-        color: #475569;
-        line-height: 1.6;
+        color: #334155; /* 실측 대비 약 10.4:1 */
         margin-bottom: 0;
+        line-height: 1.6;
     }
-    
-    /* 하이라이트 카드 스타일링 */
     .highlight-card {
         background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 24px;
+        border: 2px solid #CBD5E1; /* 테두리 명확화 */
+        border-radius: 12px;
+        padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
-        transition: all 0.2s ease-in-out;
-    }
-    .highlight-card:hover {
-        border-color: #2563EB;
-        box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .badge {
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+        background-color: #1D4ED8; /* 실측 대비 약 6.7:1 */
         color: #FFFFFF;
-        padding: 5px 12px;
-        border-radius: 20px;
-        font-size: 0.8rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.85rem;
         font-weight: 700;
-        letter-spacing: 0.05em;
         display: inline-block;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        margin-bottom: 10px;
     }
     .time-info {
-        background-color: #F1F5F9;
-        border-left: 4px solid #2563EB;
-        padding: 12px 16px;
-        font-family: 'JetBrains Mono', 'Courier New', monospace;
-        font-size: 0.92rem;
+        background-color: #F8FAFC;
+        border-left: 5px solid #1D4ED8;
+        padding: 12px 14px;
+        font-family: monospace;
+        font-size: 0.95rem;
         color: #0F172A;
-        margin: 14px 0;
-        border-radius: 0 8px 8px 0;
+        margin: 12px 0;
+        border-radius: 0 6px 6px 0;
     }
     
-    /* 통계 메트릭 박스 */
-    .metric-card {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 16px;
-        text-align: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-    .metric-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #2563EB;
-    }
-    .metric-label {
-        font-size: 0.85rem;
-        color: #64748B;
-        margin-top: 4px;
-    }
-
-    /* 포커스 및 접근성 요소 */
+    /* 접근 가능한 포커스 링 (WCAG 2.4.7 Focus Visible 준수) */
     .focusable-heading {
         margin-top: 1rem;
         margin-bottom: 1rem;
-        padding: 6px 10px;
-        border-radius: 8px;
+        padding: 4px 8px;
+        border-radius: 6px;
         color: #0F172A;
-        font-size: 1.5rem;
-        font-weight: 700;
     }
     .focusable-heading:focus, .focusable-heading:focus-visible {
-        outline: 3px solid #2563EB !important;
+        outline: 3px solid #1D4ED8 !important;
         outline-offset: 3px !important;
     }
 
-    /* 알림 박스 */
+    /* 접근 가능한 알림(alert) 박스 */
     .a11y-alert {
-        border-radius: 10px;
-        padding: 16px 18px;
-        margin-bottom: 16px;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
         font-size: 0.95rem;
         line-height: 1.5;
         border: 1px solid transparent;
@@ -143,24 +101,24 @@ st.markdown(
     .a11y-alert-info {
         background-color: #EFF6FF;
         border-color: #BFDBFE;
-        color: #1E40AF;
+        color: #1E3A8A;
     }
     .a11y-alert-success {
         background-color: #F0FDF4;
         border-color: #BBF7D0;
-        color: #166534;
+        color: #14532D;
     }
     .a11y-alert-error {
         background-color: #FEF2F2;
         border-color: #FECACA;
-        color: #991B1B;
+        color: #7F1D1D;
     }
     .step-text {
         color: #0F172A;
         font-size: 0.95rem;
-        margin: 6px 0;
-        font-weight: 500;
+        margin: 4px 0;
     }
+    /* 스크린 리더 전용 숨김 클래스 */
     .sr-only {
         position: absolute;
         width: 1px;
@@ -256,20 +214,21 @@ def accessible_step(message: str, icon: str = "") -> None:
 # ==============================================================================
 set_page_language("ko")
 st.markdown(
-    '<header class="hero-container" role="banner">'
-    '<h1 class="hero-title"><span aria-hidden="true">🎬</span> 뉴스 숏폼 하이라이트 자동 추출기</h1>'
-    '<p class="hero-subtitle">'
-    '뉴스 음성/영상 파일을 업로드하면 <strong>Groq Whisper AI</strong>가 자막과 타임코드를 추출하고, '
-    '<strong>Gemini AI</strong>가 30~60초 숏폼 구간 및 핵심 타이틀을 자동으로 선정합니다.'
+    '<header class="title-container" role="banner">'
+    '<h1 class="main-title"><span aria-hidden="true">🎬 </span>뉴스 숏폼 하이라이트 자동 추출기</h1>'
+    '<p class="sub-title">'
+    '뉴스 음성/영상 파일을 업로드하면 Groq Whisper로 자막과 타임코드를 추출하고, '
+    'Gemini AI가 30~60초 숏폼 구간 및 자막 타이틀을 자동으로 선정합니다.'
     '</p>'
     '</header>',
     unsafe_allow_html=True,
 )
 accessible_alert(
-    "추출 결과는 EDIUS 등 주요 넷라인 NLE에서 즉시 타임라인 복원이 가능한 CMX3600 EDL 포맷으로 제공됩니다.",
+    "처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
     kind="info",
     icon="💡",
 )
+st.divider()
 
 # ==============================================================================
 # 4. 유틸리티 함수
@@ -521,8 +480,7 @@ def main():
 
     groq_client = Groq(api_key=groq_api_key)
 
-    # 섹션 1: 파일 업로드
-    st.markdown('<h2 class="focusable-heading">1. 뉴스 미디어 파일 업로드</h2>', unsafe_allow_html=True)
+    st.header("1. 뉴스 파일 업로드")
     uploaded_file = st.file_uploader(
         "뉴스 음성 또는 영상 파일을 선택하세요.",
         type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
@@ -537,9 +495,9 @@ def main():
         )
         return
 
+    # [개선 3] 파일명 html.escape() 적용으로 XSS 방지 및 DOM 안전성 확보
     safe_filename = html.escape(uploaded_file.name)
     file_size_mb = uploaded_file.size / (1024 * 1024)
-    
     accessible_alert(
         f"파일 선택 완료: <strong>{safe_filename}</strong> ({file_size_mb:.2f} MB)",
         kind="success",
@@ -550,8 +508,7 @@ def main():
         accessible_alert("파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.", kind="error")
         return
 
-    # 섹션 2: 분석 실행
-    st.markdown('<h2 class="focusable-heading">2. 하이라이트 분석 및 EDL 생성</h2>', unsafe_allow_html=True)
+    st.header("2. 하이라이트 분석")
     start_button = st.button("🚀 하이라이트 추출 및 EDL 생성 시작", type="primary", use_container_width=True)
 
     if not start_button:
@@ -599,25 +556,7 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # 요약 메트릭 카드 대시보드
-        st.markdown("<br>", unsafe_allow_html=True)
-        col_m1, col_m2, col_m3 = st.columns(3)
-        with col_m1:
-            st.markdown(
-                f'<div class="metric-card"><div class="metric-value">{seconds_to_min_sec(media_duration)}</div><div class="metric-label">전체 영상 길이</div></div>',
-                unsafe_allow_html=True,
-            )
-        with col_m2:
-            st.markdown(
-                f'<div class="metric-card"><div class="metric-value">{len(highlights)}개</div><div class="metric-label">추출 숏폼 구간</div></div>',
-                unsafe_allow_html=True,
-            )
-        with col_m3:
-            st.markdown(
-                '<div class="metric-card"><div class="metric-value">29.97 DF</div><div class="metric-label">타임코드 규격</div></div>',
-                unsafe_allow_html=True,
-            )
-
+        # [개선 1] focus-visible 포커스 링이 정삼 작동하도록 style="outline:none;" 제거 및 class 추가
         st.markdown(
             '<h2 id="results-heading" class="focusable-heading" tabindex="-1">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
@@ -633,32 +572,34 @@ def main():
             subtitle = html.escape(str(highlight.get("sub_title", "-")))
             reason = html.escape(str(highlight.get("reason", "-")))
 
+            # [개선 2] aria-label을 카드별 고유 타이틀이 포함되도록 동적 구성
             region_aria_label = html.escape(f"{title} 타임코드 및 재생시간 정보")
 
             st.markdown(
                 f"""
                 <article class="highlight-card" aria-labelledby="card-title-{index}">
-                    <span class="badge">SHORTFORM CLIP #{index}</span>
-                    <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.35rem; font-weight: 700;">{title}</h3>
-                    <p style="margin: 0 0 12px 0; color: #2563EB; font-weight: 600; font-size: 1.05rem;">{subtitle}</p>
+                    <span class="badge">SHORTFORM #{index}</span>
+                    <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.3rem;">{title}</h3>
+                    <p style="margin: 0 0 12px 0; color: #334155; font-weight: 600;">{subtitle}</p>
                     <div class="time-info" role="region" aria-label="{region_aria_label}">
-                        <span aria-hidden="true">⏱️ </span><strong>DF 타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
-                        <span aria-hidden="true">⏳ </span><strong>구간 위치:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
+                        <span aria-hidden="true">⏱️ </span><strong>타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
+                        <span aria-hidden="true">⏳ </span><strong>재생시간:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
                     </div>
-                    <p style="margin: 10px 0 0 0; font-size: 0.95rem; color: #334155; line-height: 1.6;">
-                        <strong><span aria-hidden="true">💡 </span>추천 사유:</strong> {reason}
+                    <p style="margin: 8px 0 0 0; font-size: 0.95rem; color: #334155;">
+                        <strong><span aria-hidden="true">💡 </span>선정 이유:</strong> {reason}
                     </p>
                 </article>
                 """,
                 unsafe_allow_html=True,
             )
 
-        st.markdown('<h2 class="focusable-heading">4. EDIUS 연동 파일 다운로드</h2>', unsafe_allow_html=True)
+        st.divider()
+        st.header("4. EDIUS 연동 파일 다운로드")
 
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
         st.download_button(
-            label="💾 EDIUS용 EDL 파일 다운로드 (.edl)",
+            label="💾 EDIUS용 EDL 파일 다운로드",
             data=edl_content,
             file_name=edl_filename,
             mime="text/plain",
