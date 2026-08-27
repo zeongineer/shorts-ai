@@ -129,13 +129,13 @@ def run_whisper_stt(client: Groq, audio_path: str):
 
 def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
     """
-    Llama 모델을 활용해 30~60초 하이라이트 구간 추천 (최신 유효 모델 적용 및 자동 폴백)
+    Groq 최신 지원 모델(Llama 3.3/3.1) 기반 숏폼 하이라이트 구간 자동 추천
     """
-    # Groq에서 현재 정상 서비스 중인 유효 모델 리스트로 수정
+    # Groq 공식 가이드 기준 유효한 최신 모델만 배치
     candidate_models = [
         "llama-3.3-70b-versatile",
-        "llama-3.1-70b-versatile",
-        "llama3-8b-8192"
+        "llama-3.1-8b-instant",
+        "llama-3.1-70b-versatile"
     ]
     
     condensed_segments = []
@@ -153,18 +153,7 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
 [선정 기준]
 1. 각 구간은 반드시 30초 이상 60초 이하이어야 한다.
 2. 시청자의 후킹을 유도하는 주요 발언이나 사건의 핵심 요약이 담긴 구간이어야 한다.
-3. 응답은 오직 Valid JSON 배열 형식으로만 출력하라. 다른 설명이나 마크다운 문법은 포함하지 마라.
-
-[응답 JSON 형식]
-[
-  {
-    "main_title": "메인 자막 타이틀 (15자 이내)",
-    "sub_title": "부제목/요약 (25자 이내)",
-    "start_time": 12.5,
-    "end_time": 45.2,
-    "reason": "선정 이유 설명"
-  }
-]
+3. 반드시 [ {"main_title": "...", "sub_title": "...", "start_time": 12.5, "end_time": 45.2, "reason": "..."} ] 형태의 순수 JSON 배열(List)로만 응답하라.
 """
 
     user_prompt = f"다음 뉴스 자막 데이터에서 숏폼 하이라이트 구간 3곳을 선정해줘:\n\n{json.dumps(condensed_segments, ensure_ascii=False)}"
@@ -172,24 +161,24 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
     last_exception = None
     for model_name in candidate_models:
         try:
-            # 모델 호출 옵션 설정
+            # 기본 파라미터 구성
             kwargs = {
                 "model": model_name,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                "temperature": 0.2
+                "temperature": 0.1
             }
-            
-            # 3.3 및 3.1 모델에 한해 JSON mode 적용
-            if "llama-3" in model_name:
+
+            # Llama 3.3 및 3.1 모델 JSON Mode 호환 설정
+            if "llama-3.3" in model_name or "llama-3.1" in model_name:
                 kwargs["response_format"] = {"type": "json_object"}
 
             response = client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content.strip()
             
-            # 백틱(```) 제거 방어 로직
+            # 마크다운 백틱 및 기타 텍스트 정제
             if "```" in content:
                 content = content.split("```")[1]
                 if content.startswith("json"):
@@ -197,13 +186,14 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
             
             data = json.loads(content.strip())
             
-            # 반환 구조에 따른 리스트 추출
+            # JSON 래핑 형태(dict)로 반환된 경우 내부 list 추출
             if isinstance(data, dict):
                 for k, v in data.items():
                     if isinstance(v, list):
                         return v
-                # 키가 개별 객체인 경우 리스트로 래핑
-                return [data]
+                # 리스트를 찾지 못했으나 객체 자체에 데이터가 있는 경우 래핑
+                if "main_title" in data or "start_time" in data:
+                    return [data]
             elif isinstance(data, list):
                 return data
                 
