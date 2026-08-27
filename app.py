@@ -495,7 +495,6 @@ def main():
         )
         return
 
-    # [개선 3] 파일명 html.escape() 적용으로 XSS 방지 및 DOM 안전성 확보
     safe_filename = html.escape(uploaded_file.name)
     file_size_mb = uploaded_file.size / (1024 * 1024)
     accessible_alert(
@@ -556,7 +555,6 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # [개선 1] focus-visible 포커스 링이 정삼 작동하도록 style="outline:none;" 제거 및 class 추가
         st.markdown(
             '<h2 id="results-heading" class="focusable-heading" tabindex="-1">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
@@ -572,7 +570,6 @@ def main():
             subtitle = html.escape(str(highlight.get("sub_title", "-")))
             reason = html.escape(str(highlight.get("reason", "-")))
 
-            # [개선 2] aria-label을 카드별 고유 타이틀이 포함되도록 동적 구성
             region_aria_label = html.escape(f"{title} 타임코드 및 재생시간 정보")
 
             st.markdown(
@@ -607,17 +604,18 @@ def main():
         )
 
     except Exception as error:
-        accessible_alert("처리 중 오류가 발생했습니다.", kind="error", icon="❌")
+        accessible_alert(f"처리 중 오류가 발생했습니다: {str(error)}", kind="error", icon="❌")
+        
+        # 디버그용: 실제 발생한 상세 에러 스택트레이스를 바로 화면에 출력
+        st.exception(error)
+        
         st.markdown(
             '<ul style="color:#334155; font-size:0.95rem;">'
-            '<li>오디오 트랙이 정상 포함된 미디어 파일인지 확인해 보세요.</li>'
-            '<li>지속적인 실패 발생 시 관리자에게 문의바랍니다.</li>'
+            '<li>Groq / Gemini API 키 및 Quota(호출 한도) 상태를 확인해 보세요.</li>'
+            '<li>Streamlit Cloud의 Manage app -> Logs에서 상세 로그를 확인할 수 있습니다.</li>'
             '</ul>',
             unsafe_allow_html=True,
         )
-
-        if os.getenv("APP_DEBUG", "false").lower() == "true":
-            st.exception(error)
 
     finally:
         for path in [raw_input_path, processed_audio_path]:
