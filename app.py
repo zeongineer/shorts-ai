@@ -230,12 +230,6 @@ unsafe_allow_html=True,
 
 def set_page_language(lang_code: str = "ko") -> None:
 
-"""페이지 전체 언어를 명시적으로 지정하여 스크린리더가 올바른 발음 규칙을
-
-사용하도록 강제한다. Streamlit이 기본 lang 속성을 안정적으로 노출하지
-
-않으므로, 부모 문서(document)의 <html lang> 속성을 직접 설정한다."""
-
 components.html(
 
 f"""
