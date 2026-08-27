@@ -25,194 +25,62 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 방송 편집실(broadcast control-room) 컨셉 디자인 토큰
-# - 타임코드/릴/EDL 등 이 도구가 실제로 다루는 소재에서 시각 언어를 그대로 가져옴
-# - 색상은 모두 "명시적으로 밝은 배경을 가진 컨테이너 안"에서만 사용되어
-#   .streamlit/config.toml의 라이트 테마 고정과 무관하게 대비가 항상 보장됨
+# 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
+# 참고: 다크 테마 강제 방지는 .streamlit/config.toml 에서 처리됨.
+# 아래 색상들은 모두 "명시적으로 밝은 배경을 가진 컨테이너 안"에서만 사용되어
+# 테마 설정과 무관하게 대비가 항상 보장되도록 구조를 바꿈.
 st.markdown(
     """
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
     <style>
-    :root {
-        --ink: #12151C;
-        --ink-muted: #4B5563;
-        --bg-page: #F4F5F7;
-        --surface: #FFFFFF;
-        --border: #E2E4EA;
-        --accent: #BE123C;      /* 온에어 레드 - 실측 대비(백색 텍스트) 약 5.9:1 */
-        --accent-soft: #FDE8ED;
-        --signal: #0F766E;      /* 시그널 틸 - 보조 강조 */
-        --tc-bg: #14151A;       /* 타임코드 LED 패널 배경 */
-        --tc-fg: #FBBF24;       /* 타임코드 앰버 디지트 - 배경 대비 약 11.9:1 */
-    }
-
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, sans-serif;
-    }
-
-    /* ---------- 상단 온에어 바 ---------- */
-    .onair-bar {
-        background-color: var(--ink);
-        border-radius: 14px;
-        padding: 22px 28px;
-        margin-bottom: 1.4rem;
-        position: relative;
-        overflow: hidden;
-        border-top: 4px solid var(--accent);
-    }
-    .onair-tally {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background-color: rgba(190, 18, 60, 0.18);
-        border: 1px solid rgba(190, 18, 60, 0.5);
-        color: #FCA5B7;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.75rem;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        padding: 3px 10px;
-        border-radius: 999px;
-        margin-bottom: 12px;
-    }
-    .onair-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background-color: #FB7185;
-        display: inline-block;
-    }
-    @media (prefers-reduced-motion: no-preference) {
-        .onair-dot { animation: onair-pulse 1.8s ease-in-out infinite; }
-    }
-    @keyframes onair-pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.35; }
+    /* 색상 대비 4.5:1 이상 준수 */
+    .title-container {
+        background-color: #FFFFFF;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 1.2rem;
+        border: 1px solid #E2E8F0;
     }
     .main-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 2rem;
+        font-size: 2.2rem;
         font-weight: 700;
-        color: #FFFFFF; /* var(--ink) 배경 대비 약 17.6:1 */
+        color: #0F172A; /* 실측 대비 약 17.9:1 (배경 #FFFFFF 기준) */
         margin-bottom: 0.5rem;
-        letter-spacing: -0.01em;
     }
     .sub-title {
-        font-size: 1rem;
-        color: #C7CBD6; /* var(--ink) 배경 대비 약 8.9:1 */
+        font-size: 1.05rem;
+        color: #334155; /* 실측 대비 약 10.4:1 (배경 #FFFFFF 기준) */
         margin-bottom: 0;
-        line-height: 1.65;
-        max-width: 62ch;
+        line-height: 1.6;
     }
-
-    /* ---------- 섹션 헤더 (REEL 아이번로우) ---------- */
-    .section-header {
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-        margin: 0.4rem 0 1rem 0;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 10px;
-    }
-    .section-eyebrow {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.1em;
-        color: var(--accent);
-        background-color: var(--accent-soft);
-        padding: 2px 8px;
-        border-radius: 4px;
-        white-space: nowrap;
-    }
-    .section-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.4rem;
-        font-weight: 700;
-        color: var(--ink);
-        margin: 0;
-    }
-
-    /* ---------- 하이라이트 카드 (클립 슬레이트) ---------- */
     .highlight-card {
-        background-color: var(--surface);
-        border: 1px solid var(--border);
-        border-left: 4px solid var(--signal);
-        border-radius: 10px;
-        padding: 22px 24px;
-        margin-bottom: 18px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        background-color: #FFFFFF;
+        border: 2px solid #CBD5E1; /* 테두리 명확화 */
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .badge {
-        background-color: var(--signal);
-        color: #FFFFFF; /* var(--signal) 배경 대비 약 5.4:1 */
-        padding: 3px 10px;
-        border-radius: 5px;
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
-        display: inline-block;
-        margin-bottom: 12px;
-    }
-    .card-title {
-        font-family: 'Space Grotesk', sans-serif;
-        font-weight: 700;
-        color: var(--ink);
-        font-size: 1.25rem;
-        margin: 0 0 6px 0;
-    }
-    .card-subtitle {
-        color: var(--ink-muted);
-        font-weight: 500;
-        margin: 0 0 14px 0;
-    }
-    .card-reason {
-        color: var(--ink-muted);
-        font-size: 0.92rem;
-        margin: 12px 0 0 0;
-        line-height: 1.55;
-    }
-
-    /* ---------- 타임코드 LED 패널 (시그니처 요소) ---------- */
-    .tc-panel {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin: 4px 0 2px 0;
-    }
-    .tc-chip {
-        background-color: var(--tc-bg);
+        background-color: #1D4ED8; /* 실측 대비 약 6.7:1 (배경 #FFFFFF 기준) */
+        color: #FFFFFF;
+        padding: 4px 10px;
         border-radius: 6px;
-        padding: 8px 12px;
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-    }
-    .tc-label {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.68rem;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        color: #8B8F9C;
-        text-transform: uppercase;
-    }
-    .tc-value {
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.98rem;
-        font-weight: 600;
-        color: var(--tc-fg); /* var(--tc-bg) 배경 대비 약 11.9:1 */
-        letter-spacing: 0.02em;
-    }
-    .tc-duration {
-        font-family: 'IBM Plex Mono', monospace;
         font-size: 0.85rem;
-        color: var(--ink-muted);
-        align-self: center;
+        font-weight: 700;
+        display: inline-block;
+        margin-bottom: 10px;
     }
-
-    /* ---------- 접근 가능한 알림(alert) 박스 ---------- */
+    .time-info {
+        background-color: #F8FAFC;
+        border-left: 5px solid #1D4ED8;
+        padding: 12px 14px;
+        font-family: monospace;
+        font-size: 0.95rem;
+        color: #0F172A;
+        margin: 12px 0;
+        border-radius: 0 6px 6px 0;
+    }
+    /* 접근 가능한 알림(alert) 박스 - st.success/info/error 대체용 */
     .a11y-alert {
         border-radius: 8px;
         padding: 14px 16px;
@@ -224,57 +92,23 @@ st.markdown(
     .a11y-alert-info {
         background-color: #EFF6FF;
         border-color: #BFDBFE;
-        color: #1E3A8A;
+        color: #1E3A8A; /* 대비 확보 */
     }
     .a11y-alert-success {
         background-color: #F0FDF4;
         border-color: #BBF7D0;
-        color: #14532D;
+        color: #14532D; /* 대비 확보 */
     }
     .a11y-alert-error {
         background-color: #FEF2F2;
         border-color: #FECACA;
-        color: #7F1D1D;
+        color: #7F1D1D; /* 대비 확보 */
     }
     .step-text {
-        color: var(--ink);
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.88rem;
+        color: #0F172A;
+        font-size: 0.95rem;
         margin: 4px 0;
     }
-
-    /* ---------- Streamlit 네이티브 위젯 재스타일 ---------- */
-    div[data-testid="stAppViewContainer"] {
-        background-color: var(--bg-page);
-    }
-    button[kind="primary"], [data-testid="stBaseButton-primary"] {
-        background-color: var(--accent) !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-    }
-    button[kind="primary"]:hover, [data-testid="stBaseButton-primary"]:hover {
-        background-color: #9F1239 !important;
-    }
-    [data-testid="stDownloadButton"] button {
-        border-radius: 8px !important;
-        border: 1.5px solid var(--signal) !important;
-        color: var(--signal) !important;
-        font-weight: 600 !important;
-        background-color: transparent !important;
-    }
-    [data-testid="stDownloadButton"] button:hover {
-        background-color: #F0FDFA !important;
-    }
-    [data-testid="stFileUploaderDropzone"] {
-        border-radius: 10px !important;
-        border: 1.5px dashed var(--border) !important;
-    }
-    [data-testid="stExpander"], [data-testid="stStatusWidget"] {
-        border-radius: 10px !important;
-        border-color: var(--border) !important;
-    }
-
     /* 스크린 리더 전용 숨김 클래스 */
     .sr-only {
         position: absolute;
@@ -368,19 +202,6 @@ def accessible_step(message: str, icon: str = "") -> None:
     )
 
 
-def section_header(reel_number: str, title: str) -> None:
-    """실제 순차 워크플로우(업로드→분석→결과→다운로드)를 나타내는 섹션 헤딩.
-    'REEL' 표기는 이 도구가 다루는 EDL/릴 용어와 일관성을 맞춘 것으로,
-    장식이 아니라 진행 순서라는 정보를 담는다. 시맨틱 h2는 그대로 유지."""
-    st.markdown(
-        f'<div class="section-header">'
-        f'<span class="section-eyebrow" aria-hidden="true">REEL {reel_number}</span>'
-        f'<h2 class="section-title">{title}</h2>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-
 # ==============================================================================
 # 3. 헤더 UI (접근성 태그 및 대체텍스트 적용)
 # ==============================================================================
@@ -388,8 +209,7 @@ def section_header(reel_number: str, title: str) -> None:
 set_page_language("ko")
 
 st.markdown(
-    '<div class="onair-bar">'
-    '<div class="onair-tally"><span class="onair-dot" aria-hidden="true"></span>ON AIR · AUTO EDIT</div>'
+    '<div class="title-container">'
     '<h1 class="main-title"><span aria-hidden="true">🎬 </span>뉴스 숏폼 하이라이트 자동 추출기</h1>'
     '<p class="sub-title">'
     '뉴스 음성/영상 파일을 업로드하면 Groq Whisper로 자막과 타임코드를 추출하고, '
@@ -663,7 +483,8 @@ def main():
 
     groq_client = Groq(api_key=groq_api_key)
 
-    section_header("01", "뉴스 파일 업로드")
+    # H2 헤딩 정의
+    st.header("1. 뉴스 파일 업로드")
     uploaded_file = st.file_uploader(
         "뉴스 음성 또는 영상 파일을 선택하세요.",
         type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
@@ -689,7 +510,7 @@ def main():
         accessible_alert("파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.", kind="error")
         return
 
-    section_header("02", "하이라이트 분석")
+    st.header("2. 하이라이트 분석")
     start_button = st.button("🚀 하이라이트 추출 및 EDL 생성 시작", type="primary", use_container_width=True)
 
     if not start_button:
@@ -739,13 +560,9 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # 결과 헤딩 - tabindex="-1"을 부여해 스크립트로 포커스를 이동시킬 수 있도록 함
+        # H2 헤딩 - tabindex="-1"을 부여해 스크립트로 포커스를 이동시킬 수 있도록 함
         st.markdown(
-            '<div class="section-header">'
-            '<span class="section-eyebrow" aria-hidden="true">REEL 03</span>'
-            '<h2 class="section-title" id="results-heading" tabindex="-1" style="outline:none;">'
-            '추천 숏폼 하이라이트 (3선)</h2>'
-            '</div>',
+            '<h2 id="results-heading" tabindex="-1" style="outline:none;">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
         )
         # 결과가 방금 나타났음을 키보드/스크린리더 사용자에게 알리기 위해 포커스 이동
@@ -760,22 +577,18 @@ def main():
             subtitle = str(highlight.get("sub_title", "-"))
             reason = str(highlight.get("reason", "-"))
 
-            # 접근성이 준수된 커스텀 카드 HTML - 타임코드는 실제 방송 화면의
-            # LED 번인(burn-in) 오버레이를 본뜬 시그니처 요소로 표현
+            # 접근성이 준수된 커스텀 카드 HTML
             st.markdown(
                 f"""
                 <article class="highlight-card" aria-labelledby="card-title-{index}">
-                    <span class="badge">CLIP {index:02d} / 03</span>
-                    <h3 id="card-title-{index}" class="card-title">{title}</h3>
-                    <p class="card-subtitle">{subtitle}</p>
-                    <div class="tc-panel" role="region" aria-label="시간 정보">
-                        <div class="tc-chip">
-                            <span class="tc-label" aria-hidden="true">TC IN/OUT</span>
-                            <span class="tc-value">{seconds_to_df_timecode(start_sec)} — {seconds_to_df_timecode(end_sec)}</span>
-                        </div>
-                        <span class="tc-duration">{seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} · {duration}초</span>
+                    <span class="badge">SHORTFORM #{index}</span>
+                    <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.3rem;">{title}</h3>
+                    <p style="margin: 0 0 12px 0; color: #334155; font-weight: 600;">{subtitle}</p>
+                    <div class="time-info" role="region" aria-label="시간 정보">
+                        <span aria-hidden="true">⏱️ </span><strong>타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
+                        <span aria-hidden="true">⏳ </span><strong>재생시간:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
                     </div>
-                    <p class="card-reason">
+                    <p style="margin: 8px 0 0 0; font-size: 0.95rem; color: #334155;">
                         <strong><span aria-hidden="true">💡 </span>선정 이유:</strong> {reason}
                     </p>
                 </article>
@@ -784,7 +597,7 @@ def main():
             )
 
         st.divider()
-        section_header("04", "EDIUS 연동 파일 다운로드")
+        st.header("4. EDIUS 연동 파일 다운로드")
 
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
@@ -799,7 +612,7 @@ def main():
     except Exception as error:
         accessible_alert("처리 중 오류가 발생했습니다.", kind="error", icon="❌")
         st.markdown(
-            '<ul style="color:#4B5563; font-size:0.95rem;">'
+            '<ul style="color:#334155; font-size:0.95rem;">'
             '<li>오디오 트랙이 정상 포함된 미디어 파일인지 확인해 보세요.</li>'
             '<li>지속적인 실패 발생 시 관리자에게 문의바랍니다.</li>'
             '</ul>',
