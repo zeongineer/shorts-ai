@@ -6,9 +6,11 @@ import tempfile
 import streamlit as st
 from dotenv import load_dotenv
 from groq import Groq
+from google import genai
+from google.genai import types
 
 # ------------------------------------------------------------------------------
-# 1. 환경 설정 및 초기화 (사이드바 없이 Secrets/Env로 키 자동 로드)
+# 1. 환경 설정 및 초기화 (사이드바 완전 제거 UI)
 # ------------------------------------------------------------------------------
 load_dotenv()
 
@@ -19,7 +21,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 사용자 접근성 개선 및 사이드바 완전 제거 CSS
+# 사용자 접근성 개선 및 사이드바 제거 CSS
 st.markdown("""
     <style>
         [data-testid="collapsedControl"] { display: none; }
@@ -34,8 +36,8 @@ st.markdown("""
 # ------------------------------------------------------------------------------
 def prepare_audio_for_groq(input_file_path: str) -> str:
     """
-    업로드된 비디오/오디오 파일을 Groq API 용량 제한(25MB)에 맞게
-    초고속 압축(MP3, 16kHz, 64kbps, 모노)을 진행
+    업로드된 비디오/오디오 파일을 Groq API 전송 기준(25MB 이하)에 맞춰
+    초고속 압축(MP3, 16kHz, 64kbps, 모노) 진행
     """
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -103,7 +105,6 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
         src_in = seconds_to_df_timecode(s_time)
         src_out = seconds_to_df_timecode(e_time)
         
-        # 컷 편집 연결
         edl_lines.append(f"{idx:03d}  {reel_name:<8} AA/V  C        {src_in} {src_out} {src_in} {src_out}")
         edl_lines.append(f"* FROM CLIP: {item.get('main_title', 'Highlight')}")
         edl_lines.append(f"* COMMENTS: {item.get('sub_title', '')}")
@@ -112,7 +113,7 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
     return "\n".join(edl_lines)
 
 # ------------------------------------------------------------------------------
-# 4. Groq API 호출 로직 (STT & LLM Fallback)
+# 4. AI 서비스 호출 로직 (Groq Whisper STT & Gemini LLM)
 # ------------------------------------------------------------------------------
 def run_whisper_stt(client: Groq, audio_path: str):
     """
@@ -127,17 +128,11 @@ def run_whisper_stt(client: Groq, audio_path: str):
         )
     return transcription.segments
 
-def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
+def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list:
     """
-    Groq 최신 공식 지원 모델 기반 숏폼 하이라이트 구간 자동 추천
+    Gemini 2.5 Flash 및 Schema Enforcement를 적용하여 30~60초 하이라이트 구간 자동 추천
     """
-    # 2026년 기준 Groq 공식 서비스 중인 최신 메인 모델 및 경량 모델
-    candidate_models = [
-        "llama-3.3-70b-versatile",
-        "llama-3.3-70b-specdec",
-        "llama-3.2-11b-vision-preview",
-        "llama-3.2-3b-preview"
-    ]
+    client = genai.Client(api_key=gemini_api_key)
     
     condensed_segments = []
     for seg in segments:
@@ -147,86 +142,62 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
             "text": seg.get("text", "").strip()
         })
     
-    system_prompt = """
+    prompt = f"""
 너는 뉴스 수석 에디터이자 숏폼(YouTube Shorts, TikTok, 와이숏츠) 콘텐츠 전문가이다.
 제공되는 타임코드별 뉴스 자막 데이터를 분석하여, 숏폼으로 제작하기 가장 매력적인 30초~60초 길이의 하이라이트 구간 3곳을 선정하라.
 
 [선정 기준]
 1. 각 구간은 반드시 30초 이상 60초 이하이어야 한다.
 2. 시청자의 후킹을 유도하는 주요 발언이나 사건의 핵심 요약이 담긴 구간이어야 한다.
-3. 응답은 반드시 "highlights"라는 키 안에 배열을 담은 JSON 객체 형태로 출력하라.
+3. 제공되는 스키마 형식에 맞춰 정확한 JSON 데이터로 반환하라.
 
-[응답 JSON 형식 예시]
-{
-  "highlights": [
-    {
-      "main_title": "메인 자막 타이틀",
-      "sub_title": "부제목/요약",
-      "start_time": 12.5,
-      "end_time": 45.2,
-      "reason": "선정 이유"
-    }
-  ]
-}
+[뉴스 자막 데이터]
+{json.dumps(condensed_segments, ensure_ascii=False)}
 """
 
-    user_prompt = f"다음 뉴스 자막 데이터에서 숏폼 하이라이트 구간 3곳을 선정해줘:\n\n{json.dumps(condensed_segments, ensure_ascii=False)}"
+    # Gemini 구조화 데이터(JSON Schema) 응답 강제 설정
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema={
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "main_title": {"type": "STRING", "description": "메인 자막 타이틀 (15자 이내)"},
+                        "sub_title": {"type": "STRING", "description": "부제목/요약 (25자 이내)"},
+                        "start_time": {"type": "NUMBER", "description": "시작 시간(초)"},
+                        "end_time": {"type": "NUMBER", "description": "종료 시간(초)"},
+                        "reason": {"type": "STRING", "description": "선정 이유 설명"}
+                    },
+                    "required": ["main_title", "sub_title", "start_time", "end_time", "reason"]
+                }
+            },
+            temperature=0.2
+        )
+    )
 
-    last_exception = None
-    for model_name in candidate_models:
-        try:
-            # Groq API JSON Mode 적용
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.1,
-                response_format={"type": "json_object"}
-            )
-            content = response.choices[0].message.content.strip()
-            
-            # 마크다운 백틱 및 텍스트 정제
-            if "```" in content:
-                content = content.split("```")[1]
-                if content.startswith("json"):
-                    content = content[4:]
-            
-            data = json.loads(content.strip())
-            
-            # 파싱 방어 로직 (객체 또는 배열에서 하이라이트 목록 추출)
-            if isinstance(data, dict):
-                if "highlights" in data and isinstance(data["highlights"], list):
-                    return data["highlights"]
-                for k, v in data.items():
-                    if isinstance(v, list):
-                        return v
-                if "main_title" in data or "start_time" in data:
-                    return [data]
-            elif isinstance(data, list):
-                return data
-                
-        except Exception as e:
-            last_exception = e
-            continue
+    return json.loads(response.text)
 
-    raise RuntimeError(f"모든 후보 모델 호출에 실패했습니다. 마지막 오류: {last_exception}")
 # ------------------------------------------------------------------------------
 # 5. UI 메인 레이아웃 및 핸들러
 # ------------------------------------------------------------------------------
 def main():
     st.title("🎬 뉴스 숏폼 하이라이트 자동 추출기")
-    st.caption("Groq Whisper STT + Llama AI 기반 EDIUS 연동 EDL 생성 서비스")
+    st.caption("Groq Whisper STT + Gemini AI 기반 EDIUS 연동 EDL 생성 서비스")
     st.divider()
 
-    # Streamlit Secrets 또는 환경 변수에서 GROQ_API_KEY 로드
-    api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-    if not api_key:
-        st.error("⚠️ GROQ_API_KEY가 설정되지 않았습니다. Streamlit Secrets 또는 `.env` 파일을 확인해 주세요.")
+    # API 키 검증 (Secrets 또는 .env 로드)
+    groq_api_key = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
+    gemini_api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+
+    if not groq_api_key or not gemini_api_key:
+        st.error("⚠️ API 키가 설정되지 않았습니다. Streamlit Secrets 또는 `.env` 파일에 `GROQ_API_KEY`와 `GEMINI_API_KEY`를 모두 등록해 주세요.")
         st.stop()
 
-    groq_client = Groq(api_key=api_key)
+    groq_client = Groq(api_key=groq_api_key)
 
     uploaded_file = st.file_uploader(
         "뉴스 음성 또는 영상 파일을 업로드하세요",
@@ -257,13 +228,13 @@ def main():
                 progress_bar.progress(45)
                 segments = run_whisper_stt(groq_client, processed_audio_path)
 
-                # 3단계: Llama AI 하이라이트 추출
-                status_text.text("3/4. Llama AI 하이라이트 구간 분석 중...")
+                # 3단계: Gemini AI 하이라이트 추천
+                status_text.text("3/4. Gemini AI 기반 숏폼 하이라이트 분석 중...")
                 progress_bar.progress(75)
-                highlights = run_llama_highlight_extraction(groq_client, segments)
+                highlights = run_gemini_highlight_extraction(gemini_api_key, segments)
 
-                # 4단계: EDL 변환 및 결과 표시
-                status_text.text("4/4. EDL 파일 생성 및 시각화 준비 완료!")
+                # 4단계: EDL 파일 생성 및 출력
+                status_text.text("4/4. EDL 파일 생성 완료!")
                 progress_bar.progress(100)
                 status_text.empty()
                 progress_bar.empty()
@@ -284,7 +255,7 @@ def main():
                         with col2:
                             st.markdown(f"**선정 이유:**\n{hl.get('reason', '-')}")
 
-                # EDL 파일 생성 및 다운로드 버튼
+                # EDL 다운로드 버튼
                 edl_content = generate_edl(highlights)
                 edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
@@ -297,7 +268,7 @@ def main():
                     use_container_width=True
                 )
 
-                # Clean up
+                # 임시 파일 정리
                 if os.path.exists(raw_input_path):
                     os.remove(raw_input_path)
                 if os.path.exists(processed_audio_path):
