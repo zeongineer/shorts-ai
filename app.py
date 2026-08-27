@@ -26,548 +26,22 @@ st.set_page_config(
 
 
 # ==============================================================================
-# 2. 전문적인 업무용 UI CSS
+# 2. 접근성을 고려한 기본 UI
 # ==============================================================================
 
-st.markdown(
-    """
-    <style>
-
-    /* =========================================================================
-       기본 전역 설정
-       ========================================================================= */
-
-    html {
-        scroll-behavior: smooth;
-    }
-
-    body {
-        font-family:
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            "Noto Sans KR",
-            "Malgun Gothic",
-            sans-serif;
-    }
-
-    .stApp {
-        background:
-            linear-gradient(
-                180deg,
-                #f7f9fc 0%,
-                #ffffff 42%,
-                #f7f9fc 100%
-            );
-    }
-
-    /* =========================================================================
-       메인 컨테이너
-       ========================================================================= */
-
-    .main .block-container {
-        max-width: 1180px;
-        padding-top: 2.5rem;
-        padding-bottom: 4rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-
-    /* =========================================================================
-       헤더
-       ========================================================================= */
-
-    .app-header {
-        margin-bottom: 2rem;
-    }
-
-    .app-header-eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.45rem;
-
-        padding: 0.35rem 0.7rem;
-
-        border-radius: 999px;
-
-        background: #eef3ff;
-        border: 1px solid #dbe5ff;
-
-        color: #3158b7;
-
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-    }
-
-    .app-header-title {
-        margin-top: 0.8rem;
-        margin-bottom: 0.45rem;
-
-        color: #111827;
-
-        font-size: 2.15rem;
-        line-height: 1.2;
-        font-weight: 800;
-        letter-spacing: -0.04em;
-    }
-
-    .app-header-description {
-        margin: 0;
-
-        color: #667085;
-
-        font-size: 1rem;
-        line-height: 1.7;
-    }
-
-    /* =========================================================================
-       섹션
-       ========================================================================= */
-
-    .section-heading {
-        margin-top: 2.2rem;
-        margin-bottom: 1rem;
-    }
-
-    .section-number {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-
-        width: 28px;
-        height: 28px;
-
-        margin-right: 0.55rem;
-
-        border-radius: 8px;
-
-        background: #172b4d;
-        color: #ffffff;
-
-        font-size: 0.82rem;
-        font-weight: 800;
-    }
-
-    .section-title {
-        color: #172033;
-
-        font-size: 1.2rem;
-        font-weight: 750;
-        letter-spacing: -0.025em;
-    }
-
-    .section-description {
-        margin-top: 0.35rem;
-        margin-left: 2.55rem;
-
-        color: #667085;
-
-        font-size: 0.9rem;
-        line-height: 1.6;
-    }
-
-    /* =========================================================================
-       파일 업로드 카드
-       ========================================================================= */
-
-    [data-testid="stFileUploader"] {
-        padding: 0.25rem;
-    }
-
-    [data-testid="stFileUploaderDropzone"] {
-        min-height: 190px;
-
-        border: 1.5px dashed #b9c4d6;
-        border-radius: 16px;
-
-        background: #ffffff;
-
-        transition:
-            border-color 0.18s ease,
-            background-color 0.18s ease,
-            box-shadow 0.18s ease;
-    }
-
-    [data-testid="stFileUploaderDropzone"]:hover {
-        border-color: #4969b8;
-        background: #f8faff;
-
-        box-shadow:
-            0 8px 25px rgba(31, 56, 100, 0.07);
-    }
-
-    [data-testid="stFileUploaderDropzone"]:focus-within {
-        border-color: #3158b7;
-
-        box-shadow:
-            0 0 0 3px rgba(49, 88, 183, 0.18);
-    }
-
-    [data-testid="stFileUploaderDropzoneInstructions"] {
-        color: #475467;
-    }
-
-    /* =========================================================================
-       일반 Streamlit 텍스트
-       ========================================================================= */
-
-    .stMarkdown p {
-        color: #344054;
-        line-height: 1.7;
-    }
-
-    /* =========================================================================
-       버튼
-       ========================================================================= */
-
-    .stButton > button {
-        min-height: 52px;
-
-        border: 1px solid #172b4d;
-        border-radius: 10px;
-
-        background: #172b4d;
-        color: #ffffff;
-
-        font-size: 0.98rem;
-        font-weight: 750;
-
-        box-shadow:
-            0 2px 5px rgba(16, 24, 40, 0.08);
-
-        transition:
-            background-color 0.16s ease,
-            border-color 0.16s ease,
-            box-shadow 0.16s ease,
-            transform 0.16s ease;
-    }
-
-    .stButton > button:hover {
-        border-color: #0f1e35;
-        background: #0f1e35;
-
-        box-shadow:
-            0 5px 14px rgba(23, 43, 77, 0.18);
-
-        transform: translateY(-1px);
-    }
-
-    .stButton > button:active {
-        transform: translateY(0);
-    }
-
-    .stButton > button:focus-visible {
-        outline: 3px solid #7c9df2;
-        outline-offset: 3px;
-    }
-
-    .stDownloadButton > button {
-        min-height: 54px;
-
-        border: 1px solid #3158b7;
-        border-radius: 10px;
-
-        background: #3158b7;
-        color: #ffffff;
-
-        font-size: 0.98rem;
-        font-weight: 750;
-
-        box-shadow:
-            0 4px 12px rgba(49, 88, 183, 0.18);
-
-        transition:
-            background-color 0.16s ease,
-            box-shadow 0.16s ease,
-            transform 0.16s ease;
-    }
-
-    .stDownloadButton > button:hover {
-        background: #26499c;
-
-        box-shadow:
-            0 7px 18px rgba(49, 88, 183, 0.22);
-
-        transform: translateY(-1px);
-    }
-
-    .stDownloadButton > button:focus-visible {
-        outline: 3px solid #7c9df2;
-        outline-offset: 3px;
-    }
-
-    /* =========================================================================
-       성공 / 정보 / 오류 메시지
-       ========================================================================= */
-
-    [data-testid="stAlert"] {
-        border-radius: 10px;
-    }
-
-    /* =========================================================================
-       Status 영역
-       ========================================================================= */
-
-    [data-testid="stStatusWidget"] {
-        border-radius: 14px;
-        border: 1px solid #d9e0eb;
-        background: #ffffff;
-
-        box-shadow:
-            0 4px 18px rgba(16, 24, 40, 0.05);
-    }
-
-    /* =========================================================================
-       Expander
-       ========================================================================= */
-
-    [data-testid="stExpander"] {
-        margin-bottom: 0.9rem;
-
-        border: 1px solid #dfe5ee;
-        border-radius: 14px;
-
-        background: #ffffff;
-
-        box-shadow:
-            0 2px 10px rgba(16, 24, 40, 0.035);
-
-        overflow: hidden;
-    }
-
-    [data-testid="stExpander"] details {
-        border: none;
-    }
-
-    [data-testid="stExpander"] summary {
-        min-height: 58px;
-
-        padding: 0.8rem 1rem;
-
-        color: #172033;
-
-        font-weight: 700;
-    }
-
-    [data-testid="stExpander"] summary:hover {
-        background: #f8faff;
-    }
-
-    [data-testid="stExpander"] summary:focus-visible {
-        outline: 3px solid #7c9df2;
-        outline-offset: -3px;
-    }
-
-    /* =========================================================================
-       타임코드 카드
-       ========================================================================= */
-
-    .timecode-card {
-        margin-top: 0.75rem;
-        margin-bottom: 0.75rem;
-
-        padding: 1rem 1.1rem;
-
-        border-radius: 12px;
-
-        background: #f5f7fb;
-        border: 1px solid #e1e7f0;
-    }
-
-    .timecode-label {
-        margin-bottom: 0.35rem;
-
-        color: #667085;
-
-        font-size: 0.75rem;
-        font-weight: 750;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-    }
-
-    .timecode-value {
-        color: #172b4d;
-
-        font-family:
-            "SFMono-Regular",
-            Consolas,
-            "Liberation Mono",
-            monospace;
-
-        font-size: 1.05rem;
-        font-weight: 750;
-        letter-spacing: 0.01em;
-    }
-
-    /* =========================================================================
-       결과 정보 카드
-       ========================================================================= */
-
-    .result-meta {
-        display: grid;
-
-        grid-template-columns:
-            repeat(3, minmax(0, 1fr));
-
-        gap: 0.8rem;
-
-        margin-top: 0.8rem;
-        margin-bottom: 1rem;
-    }
-
-    .result-meta-item {
-        padding: 0.9rem;
-
-        border: 1px solid #e2e7ef;
-        border-radius: 10px;
-
-        background: #fafbfc;
-    }
-
-    .result-meta-label {
-        color: #667085;
-
-        font-size: 0.75rem;
-        font-weight: 700;
-    }
-
-    .result-meta-value {
-        margin-top: 0.3rem;
-
-        color: #172033;
-
-        font-size: 0.95rem;
-        font-weight: 700;
-    }
-
-    /* =========================================================================
-       EDL 다운로드 영역
-       ========================================================================= */
-
-    .download-card {
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-
-        padding: 1.4rem;
-
-        border: 1px solid #d8e1f0;
-        border-radius: 14px;
-
-        background:
-            linear-gradient(
-                135deg,
-                #f7f9ff 0%,
-                #ffffff 100%
-            );
-    }
-
-    .download-card-title {
-        margin-bottom: 0.3rem;
-
-        color: #172033;
-
-        font-size: 1rem;
-        font-weight: 750;
-    }
-
-    .download-card-description {
-        margin-bottom: 1rem;
-
-        color: #667085;
-
-        font-size: 0.88rem;
-        line-height: 1.6;
-    }
-
-    /* =========================================================================
-       구분선
-       ========================================================================= */
-
-    hr {
-        margin-top: 2rem !important;
-        margin-bottom: 2rem !important;
-
-        border: none !important;
-        border-top: 1px solid #e4e8ef !important;
-    }
-
-    /* =========================================================================
-       작은 안내 문구
-       ========================================================================= */
-
-    .helper-text {
-        color: #667085;
-
-        font-size: 0.82rem;
-        line-height: 1.6;
-    }
-
-    /* =========================================================================
-       Footer
-       ========================================================================= */
-
-    .app-footer {
-        margin-top: 3rem;
-        padding-top: 1.2rem;
-
-        border-top: 1px solid #e4e8ef;
-
-        color: #98a2b3;
-
-        font-size: 0.76rem;
-        line-height: 1.6;
-
-        text-align: center;
-    }
-
-    /* =========================================================================
-       반응형
-       ========================================================================= */
-
-    @media (max-width: 768px) {
-
-        .main .block-container {
-            padding-top: 1.5rem;
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-
-        .app-header-title {
-            font-size: 1.7rem;
-        }
-
-        .result-meta {
-            grid-template-columns: 1fr;
-        }
-
-    }
-
-    /* =========================================================================
-       모션 감소 설정
-       WCAG 2.3.3 / 사용자 환경 고려
-       ========================================================================= */
-
-    @media (prefers-reduced-motion: reduce) {
-
-        html {
-            scroll-behavior: auto;
-        }
-
-        *,
-        *::before,
-        *::after {
-            transition-duration: 0.01ms !important;
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-        }
-
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True,
+st.title("뉴스 숏폼 하이라이트 자동 추출기")
+
+st.write(
+    "뉴스 음성 또는 영상 파일을 업로드하면 "
+    "Groq Whisper로 자막과 타임코드를 추출하고, "
+    "Gemini AI가 숏폼 제작에 적합한 구간을 선정합니다."
 )
+
+st.info(
+    "처리 결과는 EDIUS에서 사용할 수 있는 EDL 파일로 다운로드할 수 있습니다."
+)
+
+st.divider()
 
 
 # ==============================================================================
@@ -575,6 +49,10 @@ st.markdown(
 # ==============================================================================
 
 def prepare_audio_for_groq(input_file_path: str) -> str:
+    """
+    대용량 영상/음성 파일을 Groq API 전송 기준에 맞춰
+    16kHz / mono / 32kbps MP3로 변환한다.
+    """
 
     output_temp_file = tempfile.NamedTemporaryFile(
         delete=False,
@@ -602,7 +80,6 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
     ]
 
     try:
-
         subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
@@ -613,7 +90,6 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
         return output_path
 
     except subprocess.CalledProcessError as e:
-
         if os.path.exists(output_path):
             os.remove(output_path)
 
@@ -627,43 +103,33 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
         )
 
 
-def seconds_to_df_timecode(
-    seconds: float,
-) -> str:
+def seconds_to_df_timecode(seconds: float) -> str:
+    """
+    초 단위 시간을 NTSC Drop Frame Timecode
+    29.97fps / HH:MM:SS;FF 형식으로 변환한다.
+    """
 
-    seconds = max(
-        0.0,
-        float(seconds),
-    )
+    seconds = max(0.0, float(seconds))
 
-    total_frames = int(
-        round(
-            seconds * 29.97
-        )
-    )
+    total_frames = int(round(seconds * 29.97))
 
     D = total_frames // 17982
     M = total_frames % 17982
 
     if M >= 2:
-
         total_frames += (
             18 * D
             + 2 * ((M - 2) // 1798)
         )
-
     else:
-
         total_frames += 18 * D
 
     frames = total_frames % 30
 
     total_seconds = total_frames // 30
-
     ss = total_seconds % 60
 
     total_minutes = total_seconds // 60
-
     mm = total_minutes % 60
 
     hh = total_minutes // 60
@@ -676,29 +142,25 @@ def seconds_to_df_timecode(
     )
 
 
-def seconds_to_min_sec(
-    seconds: float,
-) -> str:
+def seconds_to_min_sec(seconds: float) -> str:
+    """
+    UI 표시용 mm:ss 변환.
+    """
 
-    seconds = max(
-        0,
-        int(seconds),
-    )
+    seconds = max(0, int(seconds))
 
     minutes, seconds = divmod(
         seconds,
         60,
     )
 
-    return (
-        f"{minutes:02d}:"
-        f"{seconds:02d}"
-    )
+    return f"{minutes:02d}:{seconds:02d}"
 
 
-def get_media_duration(
-    file_path: str,
-) -> float:
+def get_media_duration(file_path: str) -> float:
+    """
+    FFprobe를 이용해 원본 미디어의 전체 재생 시간을 가져온다.
+    """
 
     cmd = [
         "ffprobe",
@@ -712,7 +174,6 @@ def get_media_duration(
     ]
 
     try:
-
         result = subprocess.run(
             cmd,
             stdout=subprocess.PIPE,
@@ -721,15 +182,12 @@ def get_media_duration(
             text=True,
         )
 
-        return float(
-            result.stdout.strip()
-        )
+        return float(result.stdout.strip())
 
     except (
         subprocess.CalledProcessError,
         ValueError,
     ):
-
         return 0.0
 
 
@@ -737,6 +195,9 @@ def generate_edl(
     highlights: list,
     reel_name: str = "AX0101",
 ) -> str:
+    """
+    EDIUS 연동 CMX 3600 EDL 생성.
+    """
 
     edl_lines = [
         "TITLE: NEWS_SHORTFORM_HIGHLIGHTS",
@@ -744,11 +205,10 @@ def generate_edl(
         "",
     ]
 
-    for index, item in enumerate(
+    for idx, item in enumerate(
         highlights,
         1,
     ):
-
         start_time = float(
             item.get(
                 "start_time",
@@ -786,7 +246,7 @@ def generate_edl(
         )
 
         edl_lines.append(
-            f"{index:03d}  "
+            f"{idx:03d}  "
             f"{reel_name:<8} "
             f"AA/V  C        "
             f"{src_in} "
@@ -816,37 +276,44 @@ def run_whisper_stt(
     client: Groq,
     audio_path: str,
 ):
+    """
+    Groq Whisper API를 호출하여
+    타임코드가 포함된 verbose_json을 반환한다.
+    """
 
     with open(
         audio_path,
         "rb",
     ) as file:
 
-        transcription = (
-            client.audio.transcriptions.create(
-                file=(
-                    os.path.basename(
-                        audio_path
-                    ),
-                    file.read(),
-                ),
-                model="whisper-large-v3",
-                response_format="verbose_json",
-                language="ko",
-            )
+        transcription = client.audio.transcriptions.create(
+            file=(
+                os.path.basename(audio_path),
+                file.read(),
+            ),
+            model="whisper-large-v3",
+            response_format="verbose_json",
+            language="ko",
         )
 
     return transcription.segments
 
 
 # ==============================================================================
-# 5. 하이라이트 검증
+# 5. 하이라이트 데이터 검증
 # ==============================================================================
 
 def sanitize_and_fix_highlights(
     raw_highlights: list,
     media_duration: float = 0.0,
 ) -> list:
+    """
+    Gemini 결과를 Python 단계에서 다시 검증한다.
+
+    WCAG와 직접적인 관련은 없지만,
+    사용자에게 잘못된 시간 정보를 보여주는 것을 방지하기 위한
+    데이터 무결성 검증이다.
+    """
 
     fixed_list = []
 
@@ -865,7 +332,6 @@ def sanitize_and_fix_highlights(
             continue
 
         try:
-
             start_time = float(
                 item.get(
                     "start_time",
@@ -880,6 +346,10 @@ def sanitize_and_fix_highlights(
                 )
             )
 
+            # ----------------------------------------------------------
+            # 1. 음수 방지
+            # ----------------------------------------------------------
+
             start_time = max(
                 0.0,
                 start_time,
@@ -890,12 +360,19 @@ def sanitize_and_fix_highlights(
                 end_time,
             )
 
-            if start_time > end_time:
+            # ----------------------------------------------------------
+            # 2. 시작/종료 역전 방지
+            # ----------------------------------------------------------
 
+            if start_time > end_time:
                 start_time, end_time = (
                     end_time,
                     start_time,
                 )
+
+            # ----------------------------------------------------------
+            # 3. 미디어 길이를 넘어가는 경우 제한
+            # ----------------------------------------------------------
 
             if media_duration > 0:
 
@@ -910,53 +387,55 @@ def sanitize_and_fix_highlights(
                 )
 
             duration = (
-                end_time
-                - start_time
+                end_time - start_time
             )
+
+            # ----------------------------------------------------------
+            # 4. 최소 30초 조건
+            # ----------------------------------------------------------
 
             if duration < 30.0:
 
                 candidate_end = (
-                    start_time
-                    + 30.0
+                    start_time + 30.0
                 )
 
                 if (
                     media_duration > 0
-                    and candidate_end
-                    > media_duration
+                    and candidate_end > media_duration
                 ):
                     continue
 
                 end_time = candidate_end
 
+            # ----------------------------------------------------------
+            # 5. 최대 60초 조건
+            # ----------------------------------------------------------
+
             duration = (
-                end_time
-                - start_time
+                end_time - start_time
             )
 
             if duration > 60.0:
-
                 end_time = (
-                    start_time
-                    + 60.0
+                    start_time + 60.0
                 )
 
+            # ----------------------------------------------------------
+            # 6. 최종 검증
+            # ----------------------------------------------------------
+
             duration = (
-                end_time
-                - start_time
+                end_time - start_time
             )
 
             if not (
-                start_time
-                < end_time
+                start_time < end_time
             ):
                 continue
 
             if not (
-                30.0
-                <= duration
-                <= 60.0
+                30.0 <= duration <= 60.0
             ):
                 continue
 
@@ -970,15 +449,12 @@ def sanitize_and_fix_highlights(
                 2,
             )
 
-            fixed_list.append(
-                item
-            )
+            fixed_list.append(item)
 
         except (
             TypeError,
             ValueError,
         ):
-
             continue
 
     return fixed_list
@@ -1019,11 +495,9 @@ def run_gemini_highlight_extraction(
                 or str(model)
             )
 
-            clean_id = (
-                model_id.replace(
-                    "models/",
-                    "",
-                )
+            clean_id = model_id.replace(
+                "models/",
+                "",
             )
 
             active_models.append(
@@ -1031,7 +505,6 @@ def run_gemini_highlight_extraction(
             )
 
     except Exception:
-
         pass
 
     final_models = [
@@ -1041,10 +514,11 @@ def run_gemini_highlight_extraction(
     ]
 
     if not final_models:
+        final_models = preferred_models
 
-        final_models = (
-            preferred_models
-        )
+    # ------------------------------------------------------------------
+    # 타임코드가 포함된 transcript 생성
+    # ------------------------------------------------------------------
 
     formatted_transcript = []
 
@@ -1080,13 +554,16 @@ def run_gemini_highlight_extraction(
         if text:
 
             formatted_transcript.append(
-                f"[{start:.2f}s ~ "
-                f"{end:.2f}s] {text}"
+                f"[{start:.2f}s ~ {end:.2f}s] {text}"
             )
 
     transcript_text = "\n".join(
         formatted_transcript
     )
+
+    # ------------------------------------------------------------------
+    # Prompt
+    # ------------------------------------------------------------------
 
     prompt = f"""
 너는 뉴스 방송 수석 에디터이자
@@ -1113,7 +590,7 @@ YouTube Shorts와 TikTok 전문 콘텐츠 에디터이다.
 
 8. 서로 지나치게 겹치는 구간은 피한다.
 
-9. 제공된 자막의 실제 타임코드를 사용한다.
+9. 타임코드는 반드시 제공된 자막의 타임코드를 기준으로 한다.
 
 10. 영상 전체 길이는 약 {media_duration:.2f}초이다.
 
@@ -1131,18 +608,38 @@ YouTube Shorts와 TikTok 전문 콘텐츠 에디터이다.
                 "properties": {
                     "main_title": {
                         "type": "STRING",
+                        "description": (
+                            "메인 타이틀. "
+                            "15자 이내."
+                        ),
                     },
                     "sub_title": {
                         "type": "STRING",
+                        "description": (
+                            "핵심 요약. "
+                            "25자 이내."
+                        ),
                     },
                     "start_time": {
                         "type": "NUMBER",
+                        "description": (
+                            "구간 시작 시간. "
+                            "초 단위 실수."
+                        ),
                     },
                     "end_time": {
                         "type": "NUMBER",
+                        "description": (
+                            "구간 종료 시간. "
+                            "초 단위 실수."
+                        ),
                     },
                     "reason": {
                         "type": "STRING",
+                        "description": (
+                            "해당 구간을 "
+                            "선정한 이유."
+                        ),
                     },
                 },
                 "required": [
@@ -1163,12 +660,10 @@ YouTube Shorts와 TikTok 전문 콘텐츠 에디터이다.
 
         try:
 
-            response = (
-                client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=gen_config,
-                )
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=gen_config,
             )
 
             raw_data = json.loads(
@@ -1182,15 +677,11 @@ YouTube Shorts와 TikTok 전문 콘텐츠 에디터이다.
                 )
             )
 
-            if len(
-                sanitized_data
-            ) != 3:
-
+            # 정확히 3개가 아니면 다음 모델을 시도
+            if len(sanitized_data) != 3:
                 last_exception = RuntimeError(
-                    "유효한 하이라이트 3개를 "
-                    "생성하지 못했습니다."
+                    "Gemini가 유효한 하이라이트 3개를 반환하지 않았습니다."
                 )
-
                 continue
 
             return sanitized_data
@@ -1199,17 +690,22 @@ YouTube Shorts와 TikTok 전문 콘텐츠 에디터이다.
 
             last_exception = error
 
+            continue
+
     raise RuntimeError(
-        "AI 하이라이트 추출에 실패했습니다. "
+        "하이라이트 추출에 실패했습니다. "
         "잠시 후 다시 시도해 주세요."
     ) from last_exception
 
 
 # ==============================================================================
-# 7. API Key
+# 7. API 키 확인
 # ==============================================================================
 
 def get_api_keys():
+    """
+    Streamlit Secrets 또는 .env에서 API 키를 가져온다.
+    """
 
     groq_api_key = (
         st.secrets.get(
@@ -1238,56 +734,24 @@ def get_api_keys():
 
 
 # ==============================================================================
-# 8. 메인 앱
+# 8. 메인 UI
 # ==============================================================================
 
 def main():
-
-    # ==========================================================================
-    # Header
-    # ==========================================================================
-
-    st.markdown(
-        """
-        <header class="app-header">
-            <div class="app-header-eyebrow">
-                NEWS SHORTFORM · AI EDITOR
-            </div>
-
-            <div class="app-header-title">
-                뉴스 숏폼 하이라이트 추출기
-            </div>
-
-            <p class="app-header-description">
-                뉴스 영상의 음성을 분석하여 숏폼에 적합한
-                핵심 구간을 자동으로 선정하고,
-                EDIUS용 EDL 파일을 생성합니다.
-            </p>
-        </header>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # ==========================================================================
-    # API Key
-    # ==========================================================================
 
     groq_api_key, gemini_api_key = (
         get_api_keys()
     )
 
-    if (
-        not groq_api_key
-        or not gemini_api_key
-    ):
+    if not groq_api_key or not gemini_api_key:
 
         st.error(
             "API 키가 설정되지 않았습니다."
         )
 
         st.write(
-            "GROQ_API_KEY와 GEMINI_API_KEY를 "
-            "Streamlit Secrets 또는 .env에 설정해 주세요."
+            "관리자에게 GROQ_API_KEY와 "
+            "GEMINI_API_KEY 설정을 요청해 주세요."
         )
 
         st.stop()
@@ -1296,33 +760,22 @@ def main():
         api_key=groq_api_key
     )
 
-    # ==========================================================================
-    # STEP 01
-    # ==========================================================================
+    # ------------------------------------------------------------------
+    # 파일 업로드
+    # ------------------------------------------------------------------
 
-    st.markdown(
-        """
-        <div class="section-heading">
-            <span class="section-number">01</span>
-            <span class="section-title">
-                뉴스 파일 업로드
-            </span>
+    st.header("1. 뉴스 파일 업로드")
 
-            <div class="section-description">
-                분석할 뉴스 음성 또는 영상 파일을 선택하세요.
-                최대 1GB까지 업로드할 수 있습니다.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.write(
+        "지원 파일 형식: MP3, MP4, TS, MOV, M4A, WAV"
     )
 
     st.write(
-        "지원 형식: MP3 · MP4 · TS · MOV · M4A · WAV"
+        "최대 업로드 용량: 1GB"
     )
 
     uploaded_file = st.file_uploader(
-        "분석할 뉴스 파일을 선택하세요.",
+        "뉴스 음성 또는 영상 파일을 선택하세요.",
         type=[
             "mp3",
             "mp4",
@@ -1332,48 +785,47 @@ def main():
             "wav",
         ],
         help=(
-            "뉴스 음성 또는 영상 파일을 선택하면 "
-            "AI가 숏폼 하이라이트를 분석합니다."
+            "뉴스 음성 또는 영상 파일을 "
+            "선택하면 하이라이트 구간을 자동으로 분석합니다."
         ),
-        label_visibility="collapsed",
     )
 
     if uploaded_file is None:
 
         st.info(
-            "분석할 뉴스 파일을 업로드하면 "
+            "분석할 뉴스 파일을 선택하면 "
             "하이라이트 추출을 시작할 수 있습니다."
-        )
-
-        st.markdown(
-            """
-            <div class="helper-text">
-                파일을 업로드한 후 아래 분석 시작 버튼을
-                선택할 수 있습니다.
-            </div>
-            """,
-            unsafe_allow_html=True,
         )
 
         return
 
-    # ==========================================================================
-    # 업로드 파일 정보
-    # ==========================================================================
+    # ------------------------------------------------------------------
+    # 업로드 정보
+    # ------------------------------------------------------------------
 
     file_size_mb = (
         uploaded_file.size
         / (1024 * 1024)
     )
 
+    st.success(
+        f"파일이 선택되었습니다: "
+        f"{uploaded_file.name}"
+    )
+
+    st.write(
+        f"파일 크기: {file_size_mb:.2f}MB"
+    )
+
+    # ------------------------------------------------------------------
+    # 실제 업로드 제한 검사
+    # ------------------------------------------------------------------
+
     max_file_size = (
         1024 * 1024 * 1024
     )
 
-    if (
-        uploaded_file.size
-        > max_file_size
-    ):
+    if uploaded_file.size > max_file_size:
 
         st.error(
             "파일 크기가 1GB를 초과합니다. "
@@ -1382,32 +834,11 @@ def main():
 
         return
 
-    st.success(
-        f"파일 준비 완료 · "
-        f"{uploaded_file.name} · "
-        f"{file_size_mb:.2f}MB"
-    )
+    # ------------------------------------------------------------------
+    # 실행 버튼
+    # ------------------------------------------------------------------
 
-    # ==========================================================================
-    # STEP 02
-    # ==========================================================================
-
-    st.markdown(
-        """
-        <div class="section-heading">
-            <span class="section-number">02</span>
-            <span class="section-title">
-                AI 하이라이트 분석
-            </span>
-
-            <div class="section-description">
-                Whisper STT로 자막과 타임코드를 추출한 뒤
-                Gemini AI가 숏폼에 적합한 구간을 선정합니다.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.header("2. 하이라이트 분석")
 
     start_button = st.button(
         "하이라이트 추출 및 EDL 생성 시작",
@@ -1415,7 +846,7 @@ def main():
         use_container_width=True,
         help=(
             "업로드한 뉴스 파일을 분석하여 "
-            "3개의 숏폼 하이라이트와 EDL 파일을 생성합니다."
+            "숏폼 하이라이트와 EDL 파일을 생성합니다."
         ),
     )
 
@@ -1427,21 +858,21 @@ def main():
 
     try:
 
-        # ======================================================================
-        # 처리 상태
-        # ======================================================================
+        # ==============================================================
+        # 진행 상태
+        # ==============================================================
 
         with st.status(
             "뉴스 파일을 분석하고 있습니다.",
             expanded=True,
         ) as status:
 
-            # ------------------------------------------------------------------
-            # 01 파일 저장
-            # ------------------------------------------------------------------
+            # ----------------------------------------------------------
+            # 1단계
+            # ----------------------------------------------------------
 
             st.write(
-                "1단계 · 파일 저장 및 오디오 최적화"
+                "1단계: 파일 저장 및 오디오 최적화를 진행합니다."
             )
 
             suffix = (
@@ -1462,10 +893,8 @@ def main():
 
                 while True:
 
-                    chunk = (
-                        uploaded_file.read(
-                            chunk_size
-                        )
+                    chunk = uploaded_file.read(
+                        chunk_size
                     )
 
                     if not chunk:
@@ -1490,15 +919,15 @@ def main():
             )
 
             st.write(
-                "파일 저장 및 오디오 최적화 완료"
+                "파일 저장 및 오디오 최적화가 완료되었습니다."
             )
 
-            # ------------------------------------------------------------------
-            # 02 Whisper
-            # ------------------------------------------------------------------
+            # ----------------------------------------------------------
+            # 2단계
+            # ----------------------------------------------------------
 
             st.write(
-                "2단계 · Whisper STT 타임코드 분석"
+                "2단계: 음성을 분석하여 자막과 타임코드를 추출합니다."
             )
 
             segments = run_whisper_stt(
@@ -1509,19 +938,20 @@ def main():
             if not segments:
 
                 raise RuntimeError(
-                    "음성에서 자막을 추출하지 못했습니다."
+                    "음성에서 자막을 추출하지 못했습니다. "
+                    "음성이 포함된 파일인지 확인해 주세요."
                 )
 
             st.write(
-                f"자막 구간 {len(segments)}개 추출 완료"
+                f"자막 구간 {len(segments)}개를 추출했습니다."
             )
 
-            # ------------------------------------------------------------------
-            # 03 Gemini
-            # ------------------------------------------------------------------
+            # ----------------------------------------------------------
+            # 3단계
+            # ----------------------------------------------------------
 
             st.write(
-                "3단계 · Gemini AI 하이라이트 선정"
+                "3단계: AI가 숏폼 하이라이트 구간을 선정합니다."
             )
 
             highlights = (
@@ -1532,9 +962,7 @@ def main():
                 )
             )
 
-            if len(
-                highlights
-            ) != 3:
+            if len(highlights) != 3:
 
                 raise RuntimeError(
                     "유효한 하이라이트 3개를 "
@@ -1542,15 +970,15 @@ def main():
                 )
 
             st.write(
-                "숏폼 하이라이트 3개 선정 완료"
+                "하이라이트 3개를 선정했습니다."
             )
 
-            # ------------------------------------------------------------------
-            # 04 EDL
-            # ------------------------------------------------------------------
+            # ----------------------------------------------------------
+            # 4단계
+            # ----------------------------------------------------------
 
             st.write(
-                "4단계 · EDIUS용 EDL 생성"
+                "4단계: EDIUS용 EDL 파일을 생성합니다."
             )
 
             edl_content = generate_edl(
@@ -1558,34 +986,24 @@ def main():
             )
 
             st.write(
-                "EDL 파일 생성 완료"
+                "EDL 파일 생성이 완료되었습니다."
             )
 
             status.update(
-                label="분석이 완료되었습니다.",
+                label="뉴스 하이라이트 분석이 완료되었습니다.",
                 state="complete",
                 expanded=False,
             )
 
-        # ======================================================================
-        # STEP 03 결과
-        # ======================================================================
+        # ==============================================================
+        # 결과
+        # ==============================================================
 
-        st.markdown(
-            """
-            <div class="section-heading">
-                <span class="section-number">03</span>
-                <span class="section-title">
-                    추천 숏폼 하이라이트
-                </span>
+        st.header("3. 추천 숏폼 하이라이트")
 
-                <div class="section-description">
-                    AI가 뉴스의 맥락과 내용의 중요도를 분석하여
-                    선정한 숏폼 후보 구간입니다.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.write(
+            "AI가 선정한 3개의 하이라이트입니다. "
+            "각 구간은 30초 이상 60초 이하로 검증되었습니다."
         )
 
         for index, highlight in enumerate(
@@ -1608,8 +1026,7 @@ def main():
             )
 
             duration = round(
-                end_sec
-                - start_sec,
+                end_sec - start_sec,
                 1,
             )
 
@@ -1635,135 +1052,57 @@ def main():
             )
 
             with st.expander(
-                f"하이라이트 {index} · {title}",
-                expanded=(
-                    index == 1
-                ),
+                f"하이라이트 {index}: {title}",
+                expanded=(index == 1),
             ):
 
                 st.subheader(
-                    title
+                    f"하이라이트 {index}"
                 )
 
                 st.write(
-                    f"핵심 요약: {subtitle}"
+                    f"제목: {title}"
                 )
 
-                # --------------------------------------------------------------
-                # 타임코드
-                # --------------------------------------------------------------
-
-                st.markdown(
-                    f"""
-                    <div class="timecode-card">
-                        <div class="timecode-label">
-                            EDIUS SOURCE TIMECODE
-                        </div>
-
-                        <div class="timecode-value">
-                            {seconds_to_df_timecode(start_sec)}
-                            &nbsp; → &nbsp;
-                            {seconds_to_df_timecode(end_sec)}
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                st.write(
+                    f"요약: {subtitle}"
                 )
 
-                # --------------------------------------------------------------
-                # Meta 정보
-                # --------------------------------------------------------------
+                st.write(
+                    "타임코드: "
+                    f"{seconds_to_df_timecode(start_sec)} "
+                    "부터 "
+                    f"{seconds_to_df_timecode(end_sec)}"
+                )
 
-                st.markdown(
-                    f"""
-                    <div class="result-meta">
-
-                        <div class="result-meta-item">
-                            <div class="result-meta-label">
-                                시작 시간
-                            </div>
-
-                            <div class="result-meta-value">
-                                {seconds_to_min_sec(start_sec)}
-                            </div>
-                        </div>
-
-                        <div class="result-meta-item">
-                            <div class="result-meta-label">
-                                종료 시간
-                            </div>
-
-                            <div class="result-meta-value">
-                                {seconds_to_min_sec(end_sec)}
-                            </div>
-                        </div>
-
-                        <div class="result-meta-item">
-                            <div class="result-meta-label">
-                                구간 길이
-                            </div>
-
-                            <div class="result-meta-value">
-                                {duration:.1f}초
-                            </div>
-                        </div>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                st.write(
+                    "재생 시간: "
+                    f"{seconds_to_min_sec(start_sec)} "
+                    "부터 "
+                    f"{seconds_to_min_sec(end_sec)} "
+                    f"({duration:.1f}초)"
                 )
 
                 st.write(
                     f"선정 이유: {reason}"
                 )
 
-        # ======================================================================
-        # STEP 04
-        # ======================================================================
+        # ==============================================================
+        # 다운로드
+        # ==============================================================
 
         st.divider()
 
-        st.markdown(
-            """
-            <div class="section-heading">
-                <span class="section-number">04</span>
-                <span class="section-title">
-                    EDIUS 프로젝트 연동
-                </span>
+        st.header("4. EDIUS용 EDL 파일")
 
-                <div class="section-description">
-                    생성된 하이라이트 타임코드를 기반으로
-                    CMX 3600 형식의 EDL 파일을 제공합니다.
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+        st.write(
+            "아래 버튼을 선택하면 생성된 EDL 파일을 "
+            "다운로드할 수 있습니다."
         )
 
         edl_filename = (
             f"{os.path.splitext(uploaded_file.name)[0]}"
             "_shortform.edl"
-        )
-
-        st.markdown(
-            f"""
-            <div class="download-card">
-
-                <div class="download-card-title">
-                    EDL 파일 준비 완료
-                </div>
-
-                <div class="download-card-description">
-                    파일명:
-                    <strong>{edl_filename}</strong>
-                    <br>
-                    총 {len(highlights)}개의
-                    숏폼 하이라이트가 포함되어 있습니다.
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
         )
 
         st.download_button(
@@ -1773,25 +1112,9 @@ def main():
             mime="text/plain",
             use_container_width=True,
             help=(
-                "생성된 CMX 3600 EDL 파일을 "
+                "생성된 EDIUS용 CMX 3600 EDL 파일을 "
                 "컴퓨터에 저장합니다."
             ),
-        )
-
-        # ======================================================================
-        # Footer
-        # ======================================================================
-
-        st.markdown(
-            """
-            <footer class="app-footer">
-                News Shortform AI Editor
-                · Groq Whisper STT
-                · Gemini AI
-                · EDIUS EDL
-            </footer>
-            """,
-            unsafe_allow_html=True,
         )
 
     except Exception as error:
@@ -1801,26 +1124,38 @@ def main():
         )
 
         st.write(
-            "파일 형식, 음성 포함 여부, "
-            "인터넷 연결 상태를 확인한 후 다시 시도해 주세요."
+            "다음 사항을 확인한 후 다시 시도해 주세요."
+        )
+
+        st.write(
+            "• 파일이 정상적으로 재생되는지 확인하세요."
+        )
+
+        st.write(
+            "• 음성이 포함된 파일인지 확인하세요."
+        )
+
+        st.write(
+            "• 인터넷 연결 상태를 확인하세요."
+        )
+
+        st.write(
+            "• 문제가 계속되면 관리자에게 문의하세요."
         )
 
         # 개발 환경에서만 상세 오류 표시
-        if (
-            os.getenv(
-                "APP_DEBUG",
-                "false",
-            ).lower()
-            == "true"
-        ):
+        if os.getenv(
+            "APP_DEBUG",
+            "false",
+        ).lower() == "true":
 
             st.exception(error)
 
     finally:
 
-        # ======================================================================
-        # 임시 파일 정리
-        # ======================================================================
+        # ==============================================================
+        # 임시 파일 삭제
+        # ==============================================================
 
         if (
             raw_input_path
@@ -1828,7 +1163,6 @@ def main():
                 raw_input_path
             )
         ):
-
             try:
                 os.remove(
                     raw_input_path
@@ -1842,7 +1176,6 @@ def main():
                 processed_audio_path
             )
         ):
-
             try:
                 os.remove(
                     processed_audio_path
