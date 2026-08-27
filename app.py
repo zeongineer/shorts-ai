@@ -1,4 +1,4 @@
-[import os
+import os
 import json
 import subprocess
 import tempfile
@@ -1346,4 +1346,4 @@ def main():
 # ==============================================================================
 
 if __name__ == "__main__":
-    main()]이 코드 웹접근성을 준수하는지 전체 검수해줘  
+    main()
