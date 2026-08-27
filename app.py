@@ -312,7 +312,6 @@ def main():
                         with col1:
                             st.markdown(f"**부제목:** {hl.get('sub_title', '-')}")
                             st.markdown(f"**타임코드:** `{seconds_to_df_timecode(start_sec)}` ~ `{seconds_to_df_timecode(end_sec)}`")
-                            st.markdown(f"**재생 시간:** {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)")
                         with col2:
                             st.markdown(f"**선정 이유:**\n{hl.get('reason', '-')}")
 
