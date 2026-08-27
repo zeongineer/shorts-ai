@@ -1,2287 +1,1179 @@
 import os
+
 import json
+
 import subprocess
+
 import tempfile
+
 from typing import Any, List, Dict
 
 import streamlit as st
+
 import streamlit.components.v1 as components
+
 from dotenv import load_dotenv
+
 from groq import Groq
+
 from google import genai
+
 from google.genai import types
 
 
-# ============================================================
-# 1. 환경 및 페이지 설정
-# ============================================================
+
+==============================================================================
+
+1. 환경 및 페이지 설정
+
+==============================================================================
 
 load_dotenv()
 
 st.set_page_config(
-    page_title="뉴스 숏폼 하이라이트 추출기",
-    page_icon="🎬",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+
+page_title="뉴스 숏폼 하이라이트 추출기",
+
+page_icon="🎬",
+
+layout="wide",
+
+initial_sidebar_state="collapsed",
+
 )
 
 
-# ============================================================
-# 2. 프로페셔널 라이트 테마
-# ============================================================
+
+웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
 
 st.markdown(
-    """
-    <style>
-
-    /* ========================================================
-       기본
-       ======================================================== */
-
-    :root {
-        --primary: #2563EB;
-        --primary-dark: #1D4ED8;
-        --text-primary: #0F172A;
-        --text-secondary: #334155;
-        --text-muted: #64748B;
-        --border: #E2E8F0;
-        --border-strong: #CBD5E1;
-        --background: #F8FAFC;
-        --white: #FFFFFF;
-        --success: #16A34A;
-        --warning: #D97706;
-        --danger: #B91C1C;
-    }
-
-    .stApp {
-        background: #F8FAFC;
-    }
-
-    .main .block-container {
-        max-width: 1380px;
-        padding-top: 2rem;
-        padding-bottom: 4rem;
-    }
-
-    header[data-testid="stHeader"] {
-        background: transparent;
-    }
-
-
-    /* ========================================================
-       Header
-       ======================================================== */
-
-    .app-header {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 16px;
-        padding: 26px 30px;
-        margin-bottom: 16px;
-        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
-    }
-
-    .app-eyebrow {
-        color: #2563EB;
-        font-size: 0.78rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        margin-bottom: 7px;
-    }
-
-    .app-title {
-        font-size: 2.15rem;
-        font-weight: 800;
-        color: #0F172A;
-        margin: 0 0 8px 0;
-        letter-spacing: -0.035em;
-        line-height: 1.25;
-    }
-
-    .app-description {
-        font-size: 0.98rem;
-        color: #334155;
-        margin: 0;
-        line-height: 1.7;
-    }
-
-
-    /* ========================================================
-       Alert
-       ======================================================== */
-
-    .a11y-alert {
-        border-radius: 10px;
-        padding: 13px 16px;
-        margin-bottom: 14px;
-        font-size: 0.92rem;
-        line-height: 1.55;
-        border: 1px solid transparent;
-    }
-
-    .a11y-alert-info {
-        background-color: #EFF6FF;
-        border-color: #BFDBFE;
-        color: #1E3A8A;
-    }
-
-    .a11y-alert-success {
-        background-color: #F0FDF4;
-        border-color: #BBF7D0;
-        color: #14532D;
-    }
-
-    .a11y-alert-error {
-        background-color: #FEF2F2;
-        border-color: #FECACA;
-        color: #7F1D1D;
-    }
-
-
-    /* ========================================================
-       Section
-       ======================================================== */
-
-    .section-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin: 28px 0 12px 0;
-    }
-
-    .section-number {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        border-radius: 8px;
-        background: #EFF6FF;
-        color: #1D4ED8;
-        font-size: 0.8rem;
-        font-weight: 800;
-        flex-shrink: 0;
-    }
-
-    .section-title {
-        color: #0F172A;
-        font-size: 1.12rem;
-        font-weight: 800;
-        margin: 0;
-        letter-spacing: -0.015em;
-    }
-
-    .section-description {
-        color: #64748B;
-        font-size: 0.84rem;
-        margin: 0 0 12px 40px;
-    }
-
-
-    /* ========================================================
-       KPI
-       ======================================================== */
-
-    .kpi-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 17px 19px;
-        min-height: 110px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .kpi-card-blue {
-        border-left: 4px solid #2563EB;
-    }
-
-    .kpi-card-green {
-        border-left: 4px solid #16A34A;
-    }
-
-    .kpi-card-orange {
-        border-left: 4px solid #D97706;
-    }
-
-    .kpi-label {
-        color: #64748B;
-        font-size: 0.76rem;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-
-    .kpi-icon {
-        font-size: 15px;
-        float: right;
-    }
-
-    .kpi-value {
-        color: #0F172A;
-        font-size: 1.45rem;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        line-height: 1.2;
-    }
-
-    .kpi-unit {
-        color: #64748B;
-        font-size: 0.76rem;
-        font-weight: 600;
-        margin-left: 3px;
-    }
-
-    .kpi-description {
-        color: #94A3B8;
-        font-size: 0.68rem;
-        margin-top: 5px;
-    }
-
-
-    /* ========================================================
-       Progress
-       ======================================================== */
-
-    .progress-container {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 20px 22px;
-        margin: 16px 0 20px 0;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
-    }
-
-    .progress-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-
-    .progress-title {
-        color: #0F172A;
-        font-size: 0.95rem;
-        font-weight: 700;
-    }
-
-    .progress-percent {
-        color: #2563EB;
-        font-size: 1rem;
-        font-weight: 800;
-    }
-
-    .progress-track {
-        width: 100%;
-        height: 9px;
-        background: #E2E8F0;
-        border-radius: 999px;
-        overflow: hidden;
-    }
-
-    .progress-fill {
-        height: 100%;
-        border-radius: 999px;
-        transition: width 0.35s ease;
-    }
-
-    .progress-status {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        margin-top: 10px;
-        color: #475569;
-        font-size: 0.82rem;
-    }
-
-    .progress-complete {
-        color: #15803D;
-    }
-
-
-    /* ========================================================
-       Upload Info
-       ======================================================== */
-
-    .upload-info-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 18px 20px;
-        margin-bottom: 14px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
-    }
-
-    .upload-info-title {
-        color: #0F172A;
-        font-size: 0.92rem;
-        font-weight: 750;
-        margin-bottom: 6px;
-    }
-
-    .upload-info-text {
-        color: #64748B;
-        font-size: 0.8rem;
-        line-height: 1.55;
-        margin: 0;
-    }
-
-
-    /* ========================================================
-       Highlight Card
-       ======================================================== */
-
-    .highlight-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 20px;
-        min-height: 270px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.035);
-    }
-
-    .highlight-badge {
-        display: inline-block;
-        background: #1D4ED8;
-        color: #FFFFFF;
-        padding: 5px 9px;
-        border-radius: 6px;
-        font-size: 0.72rem;
-        font-weight: 800;
-        margin-bottom: 12px;
-        letter-spacing: 0.025em;
-    }
-
-    .highlight-title {
-        color: #0F172A;
-        font-size: 1.08rem;
-        font-weight: 800;
-        line-height: 1.45;
-        margin: 0 0 7px 0;
-    }
-
-    .highlight-subtitle {
-        color: #334155;
-        font-size: 0.84rem;
-        font-weight: 600;
-        line-height: 1.55;
-        margin: 0 0 14px 0;
-    }
-
-    .time-box {
-        background-color: #F8FAFC;
-        border-left: 4px solid #1D4ED8;
-        padding: 11px 13px;
-        font-family: monospace;
-        font-size: 0.78rem;
-        color: #0F172A;
-        margin: 12px 0;
-        border-radius: 0 7px 7px 0;
-        line-height: 1.7;
-    }
-
-    .reason-text {
-        color: #475569;
-        font-size: 0.78rem;
-        line-height: 1.55;
-        margin-top: 12px;
-    }
-
-
-    /* ========================================================
-       Download
-       ======================================================== */
-
-    .download-card {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 14px;
-        padding: 18px 20px;
-        margin-top: 12px;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
-    }
-
-    .download-title {
-        color: #0F172A;
-        font-size: 0.92rem;
-        font-weight: 750;
-        margin-bottom: 5px;
-    }
-
-    .download-description {
-        color: #64748B;
-        font-size: 0.78rem;
-    }
-
-
-    /* ========================================================
-       Step Text
-       ======================================================== */
-
-    .step-text {
-        color: #0F172A;
-        font-size: 0.9rem;
-        margin: 4px 0;
-        line-height: 1.5;
-    }
-
-
-    /* ========================================================
-       Mobile
-       ======================================================== */
-
-    @media (max-width: 900px) {
-
-        .app-title {
-            font-size: 1.75rem;
-        }
-
-        .main .block-container {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True,
+
+"""
+
+<style>
+
+/* 색상 대비 4.5:1 이상 준수 /
+
+.title-container {
+
+background-color: #FFFFFF;
+
+border-radius: 12px;
+
+padding: 20px 24px;
+
+margin-bottom: 1.2rem;
+
+border: 1px solid #E2E8F0;
+
+}
+
+.main-title {
+
+font-size: 2.2rem;
+
+font-weight: 700;
+
+color: #0F172A; / 실측 대비 약 17.9:1 (배경 #FFFFFF 기준) /
+
+margin-bottom: 0.5rem;
+
+}
+
+.sub-title {
+
+font-size: 1.05rem;
+
+color: #334155; / 실측 대비 약 10.4:1 (배경 #FFFFFF 기준) /
+
+margin-bottom: 0;
+
+line-height: 1.6;
+
+}
+
+.highlight-card {
+
+background-color: #FFFFFF;
+
+border: 2px solid #CBD5E1; / 테두리 명확화 /
+
+border-radius: 12px;
+
+padding: 20px;
+
+margin-bottom: 20px;
+
+box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+}
+
+.badge {
+
+background-color: #1D4ED8; / 실측 대비 약 6.7:1 (배경 #FFFFFF 기준) /
+
+color: #FFFFFF;
+
+padding: 4px 10px;
+
+border-radius: 6px;
+
+font-size: 0.85rem;
+
+font-weight: 700;
+
+display: inline-block;
+
+margin-bottom: 10px;
+
+}
+
+.time-info {
+
+background-color: #F8FAFC;
+
+border-left: 5px solid #1D4ED8;
+
+padding: 12px 14px;
+
+font-family: monospace;
+
+font-size: 0.95rem;
+
+color: #0F172A;
+
+margin: 12px 0;
+
+border-radius: 0 6px 6px 0;
+
+}
+
+/ 접근 가능한 알림(alert) 박스 - st.success/info/error 대체용 /
+
+.a11y-alert {
+
+border-radius: 8px;
+
+padding: 14px 16px;
+
+margin-bottom: 12px;
+
+font-size: 0.95rem;
+
+line-height: 1.5;
+
+border: 1px solid transparent;
+
+}
+
+.a11y-alert-info {
+
+background-color: #EFF6FF;
+
+border-color: #BFDBFE;
+
+color: #1E3A8A; / 대비 확보 /
+
+}
+
+.a11y-alert-success {
+
+background-color: #F0FDF4;
+
+border-color: #BBF7D0;
+
+color: #14532D; / 대비 확보 /
+
+}
+
+.a11y-alert-error {
+
+background-color: #FEF2F2;
+
+border-color: #FECACA;
+
+color: #7F1D1D; / 대비 확보 /
+
+}
+
+.step-text {
+
+color: #0F172A;
+
+font-size: 0.95rem;
+
+margin: 4px 0;
+
+}
+
+/ 스크린 리더 전용 숨김 클래스 */
+
+.sr-only {
+
+position: absolute;
+
+width: 1px;
+
+height: 1px;
+
+padding: 0;
+
+margin: -1px;
+
+overflow: hidden;
+
+clip: rect(0, 0, 0, 0);
+
+white-space: nowrap;
+
+border: 0;
+
+}
+
+</style>
+
+""",
+
+unsafe_allow_html=True,
+
 )
 
 
-# ============================================================
-# 3. 접근성 유틸리티
-# ============================================================
+
+==============================================================================
+
+2. 접근성 유틸리티 (언어 설정 / 포커스 이동 / 접근 가능한 알림)
+
+==============================================================================
 
 def set_page_language(lang_code: str = "ko") -> None:
-    """
-    페이지 전체 언어를 지정합니다.
-    """
 
-    components.html(
-        f"""
-        <script>
-        try {{
-            window.parent.document.documentElement.lang = "{lang_code}";
-        }} catch (e) {{}}
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
+"""페이지 전체 언어를 명시적으로 지정하여 스크린리더가 올바른 발음 규칙을
 
+사용하도록 강제한다. Streamlit이 기본 lang 속성을 안정적으로 노출하지
+
+않으므로, 부모 문서(document)의 <html lang> 속성을 직접 설정한다."""
+
+components.html(
+
+f"""
+
+<script>
+
+try {{
+
+window.parent.document.documentElement.lang = "{lang_code}";
+
+}} catch (e) {{}}
+
+</script>
+
+""",
+
+height=0,
+
+width=0,
+
+)
 
 def focus_element_by_id(element_id: str) -> None:
-    """
-    지정한 HTML 요소에 포커스를 이동합니다.
-    """
-
-    components.html(
-        f"""
-        <script>
-        function tryFocus(retries) {{
-            try {{
-                const el = window.parent.document.getElementById("{element_id}");
-
-                if (el) {{
-                    el.focus();
-                }} else if (retries > 0) {{
-                    setTimeout(
-                        () => tryFocus(retries - 1),
-                        150
-                    );
-                }}
-
-            }} catch (e) {{}}
-        }}
-
-        tryFocus(10);
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
-
-
-def accessible_alert(
-    message: str,
-    kind: str = "info",
-    icon: str = "",
-) -> None:
-
-    css_class = {
-        "info": "a11y-alert-info",
-        "success": "a11y-alert-success",
-        "error": "a11y-alert-error",
-    }.get(
-        kind,
-        "a11y-alert-info",
-    )
-
-    if kind == "error":
-        role = "alert"
-        aria_live = "assertive"
-    else:
-        role = "status"
-        aria_live = "polite"
-
-    icon_text = f"{icon} " if icon else ""
-
-    st.markdown(
-        f"""
-        <div
-            class="a11y-alert {css_class}"
-            role="{role}"
-            aria-live="{aria_live}"
-        >
-            <span aria-hidden="true">{icon_text}</span>
-            {message}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def accessible_step(
-    message: str,
-    icon: str = "",
-) -> None:
-
-    icon_text = f"{icon} " if icon else ""
-
-    st.markdown(
-        f"""
-        <p
-            class="step-text"
-            role="status"
-            aria-live="polite"
-        >
-            <span aria-hidden="true">{icon_text}</span>
-            {message}
-        </p>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# 4. 헤더
-# ============================================================
-
-def render_header() -> None:
-
-    set_page_language("ko")
-
-    st.markdown(
-        """
-        <div class="app-header">
-
-            <div class="app-eyebrow">
-                AI NEWS SHORTFORM EDITOR
-            </div>
-
-            <h1 class="app-title">
-                🎬 뉴스 숏폼 하이라이트 자동 추출기
-            </h1>
-
-            <p class="app-description">
-                뉴스 음성/영상 파일을 업로드하면
-                Groq Whisper가 자막과 타임코드를 추출하고,
-                Gemini AI가 30~60초 숏폼 구간과 자막 타이틀을
-                자동으로 선정합니다.
-            </p>
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    accessible_alert(
-        "처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
-        kind="info",
-        icon="💡",
-    )
-
-
-# ============================================================
-# 5. KPI 카드
-# ============================================================
-
-def render_kpi_cards(
-    media_duration: float = 0.0,
-    segment_count: int = 0,
-    highlight_count: int = 0,
-) -> None:
-
-    if media_duration > 0:
-        duration_text = seconds_to_min_sec(
-            media_duration
-        )
-    else:
-        duration_text = "—"
-
-    segment_text = (
-        f"{segment_count:,}"
-        if segment_count > 0
-        else "—"
-    )
-
-    highlight_text = (
-        str(highlight_count)
-        if highlight_count > 0
-        else "—"
-    )
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-
-        st.markdown(
-            f"""
-            <div class="kpi-card kpi-card-blue">
-
-                <div class="kpi-label">
-                    영상 길이
-                    <span class="kpi-icon">🎞️</span>
-                </div>
-
-                <div class="kpi-value">
-                    {duration_text}
-                    <span class="kpi-unit">분:초</span>
-                </div>
-
-                <div class="kpi-description">
-                    업로드된 뉴스 미디어 전체 길이
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col2:
-
-        st.markdown(
-            f"""
-            <div class="kpi-card kpi-card-green">
-
-                <div class="kpi-label">
-                    자막 구간 수
-                    <span class="kpi-icon">📝</span>
-                </div>
-
-                <div class="kpi-value">
-                    {segment_text}
-                    <span class="kpi-unit">개</span>
-                </div>
-
-                <div class="kpi-description">
-                    Groq Whisper가 추출한 음성 구간
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col3:
-
-        st.markdown(
-            f"""
-            <div class="kpi-card kpi-card-orange">
-
-                <div class="kpi-label">
-                    추천 클립 수
-                    <span class="kpi-icon">✂️</span>
-                </div>
-
-                <div class="kpi-value">
-                    {highlight_text}
-                    <span class="kpi-unit">개</span>
-                </div>
-
-                <div class="kpi-description">
-                    Gemini AI가 선정한 숏폼 하이라이트
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
-# ============================================================
-# 6. 분석 진행률
-# ============================================================
-
-def render_analysis_progress(
-    placeholder,
-    progress: int,
-    message: str,
-    icon: str = "⏳",
-    complete: bool = False,
-) -> None:
-
-    progress = max(
-        0,
-        min(100, int(progress)),
-    )
-
-    if complete:
-        percent_color = "#15803D"
-        fill_color = "#16A34A"
-        status_class = "progress-status progress-complete"
-    else:
-        percent_color = "#2563EB"
-        fill_color = "#2563EB"
-        status_class = "progress-status"
-
-    placeholder.markdown(
-        f"""
-        <section
-            class="progress-container"
-            aria-label="뉴스 분석 진행률"
-        >
-
-            <div class="progress-header">
-
-                <span class="progress-title">
-                    뉴스 숏폼 분석 진행률
-                </span>
-
-                <span
-                    class="progress-percent"
-                    style="color:{percent_color};"
-                    aria-label="진행률 {progress}%"
-                >
-                    {progress}%
-                </span>
-
-            </div>
-
-            <div
-                class="progress-track"
-                role="progressbar"
-                aria-valuenow="{progress}"
-                aria-valuemin="0"
-                aria-valuemax="100"
-            >
-
-                <div
-                    class="progress-fill"
-                    style="
-                        width:{progress}%;
-                        background-color:{fill_color};
-                    "
-                ></div>
-
-            </div>
-
-            <div
-                class="{status_class}"
-                role="status"
-                aria-live="polite"
-            >
-
-                <span aria-hidden="true">
-                    {icon}
-                </span>
-
-                <span>
-                    {message}
-                </span>
-
-            </div>
-
-        </section>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# 7. 섹션 헤더
-# ============================================================
-
-def render_section_header(
-    number: str,
-    title: str,
-    description: str = "",
-) -> None:
-
-    col1, col2 = st.columns(
-        [0.05, 0.95]
-    )
-
-    with col1:
-
-        st.markdown(
-            f"""
-            <div class="section-number">
-                {number}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col2:
-
-        st.markdown(
-            f"""
-            <div class="section-title">
-                {title}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    if description:
-
-        st.markdown(
-            f"""
-            <div class="section-description">
-                {description}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
-# ============================================================
-# 8. 유틸리티
-# ============================================================
-
-def prepare_audio_for_groq(
-    input_file_path: str,
-) -> str:
-
-    output_temp_file = tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".mp3",
-    )
-
-    output_path = output_temp_file.name
-
-    output_temp_file.close()
-
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        input_file_path,
-        "-vn",
-        "-ar",
-        "16000",
-        "-ac",
-        "1",
-        "-b:a",
-        "32k",
-        "-f",
-        "mp3",
-        output_path,
-    ]
-
-    try:
-
-        subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
-
-        return output_path
-
-    except subprocess.CalledProcessError as e:
-
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
-        error_message = e.stderr.decode(
-            "utf-8",
-            errors="ignore",
-        )
-
-        raise RuntimeError(
-            f"오디오 변환(ffmpeg) 실패:\n{error_message}"
-        )
-
-
-def seconds_to_df_timecode(
-    seconds: float,
-) -> str:
-
-    seconds = max(
-        0.0,
-        float(seconds),
-    )
-
-    total_frames = int(
-        round(seconds * 29.97)
-    )
-
-    D = total_frames // 17982
-    M = total_frames % 17982
-
-    if M >= 2:
-
-        total_frames += (
-            18 * D
-            + 2 * ((M - 2) // 1798)
-        )
-
-    else:
-
-        total_frames += 18 * D
-
-    frames = total_frames % 30
-
-    total_seconds = total_frames // 30
-
-    ss = total_seconds % 60
-
-    total_minutes = total_seconds // 60
-
-    mm = total_minutes % 60
-
-    hh = total_minutes // 60
-
-    return (
-        f"{hh:02d}:"
-        f"{mm:02d}:"
-        f"{ss:02d};"
-        f"{frames:02d}"
-    )
-
-
-def seconds_to_min_sec(
-    seconds: float,
-) -> str:
-
-    seconds = max(
-        0,
-        int(seconds),
-    )
-
-    minutes, seconds = divmod(
-        seconds,
-        60,
-    )
-
-    return (
-        f"{minutes:02d}:"
-        f"{seconds:02d}"
-    )
-
-
-def get_media_duration(
-    file_path: str,
-) -> float:
-
-    cmd = [
-        "ffprobe",
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
-        file_path,
-    ]
-
-    try:
-
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-            text=True,
-        )
-
-        return float(
-            result.stdout.strip()
-        )
-
-    except (
-        subprocess.CalledProcessError,
-        ValueError,
-    ):
-
-        return 0.0
-
-
-def generate_edl(
-    highlights: list,
-    reel_name: str = "AX0101",
-) -> str:
-
-    edl_lines = [
-        "TITLE: NEWS_SHORTFORM_HIGHLIGHTS",
-        "FMT: NTSC DF",
-        "",
-    ]
-
-    for idx, item in enumerate(
-        highlights,
-        1,
-    ):
-
-        start_time = float(
-            item.get(
-                "start_time",
-                0.0,
-            )
-        )
-
-        end_time = float(
-            item.get(
-                "end_time",
-                0.0,
-            )
-        )
-
-        src_in = seconds_to_df_timecode(
-            start_time
-        )
-
-        src_out = seconds_to_df_timecode(
-            end_time
-        )
-
-        main_title = str(
-            item.get(
-                "main_title",
-                "Highlight",
-            )
-        )
-
-        sub_title = str(
-            item.get(
-                "sub_title",
-                "",
-            )
-        )
-
-        edl_lines.append(
-            f"{idx:03d} "
-            f"{reel_name:<8} "
-            f"AA/V C "
-            f"{src_in} "
-            f"{src_out} "
-            f"{src_in} "
-            f"{src_out}"
-        )
-
-        edl_lines.append(
-            f"* FROM CLIP: {main_title}"
-        )
-
-        edl_lines.append(
-            f"* COMMENTS: {sub_title}"
-        )
-
-        edl_lines.append("")
-
-    return "\n".join(
-        edl_lines
-    )
-
-
-# ============================================================
-# 9. Whisper STT
-# ============================================================
-
-def extract_segment_data(
-    segment: Any,
-) -> Dict[str, Any]:
-
-    if isinstance(
-        segment,
-        dict,
-    ):
-
-        return {
-            "start": segment.get(
-                "start",
-                0.0,
-            ),
-            "end": segment.get(
-                "end",
-                0.0,
-            ),
-            "text": segment.get(
-                "text",
-                "",
-            ),
-        }
-
-    return {
-        "start": getattr(
-            segment,
-            "start",
-            0.0,
-        ),
-        "end": getattr(
-            segment,
-            "end",
-            0.0,
-        ),
-        "text": getattr(
-            segment,
-            "text",
-            "",
-        ),
-    }
-
-
-def run_whisper_stt(
-    client: Groq,
-    audio_path: str,
-) -> List[Dict[str, Any]]:
-
-    with open(
-        audio_path,
-        "rb",
-    ) as file:
-
-        transcription = (
-            client.audio.transcriptions.create(
-                file=(
-                    os.path.basename(
-                        audio_path
-                    ),
-                    file.read(),
-                ),
-                model="whisper-large-v3",
-                response_format="verbose_json",
-                language="ko",
-            )
-        )
-
-    raw_segments = (
-        getattr(
-            transcription,
-            "segments",
-            [],
-        )
-        or []
-    )
-
-    return [
-        extract_segment_data(seg)
-        for seg in raw_segments
-    ]
-
-
-# ============================================================
-# 10. 데이터 보정
-# ============================================================
-
-def sanitize_and_fix_highlights(
-    raw_highlights: list,
-    media_duration: float = 0.0,
-) -> list:
-
-    fixed_list = []
-
-    if not isinstance(
-        raw_highlights,
-        list,
-    ):
-        return fixed_list
-
-    for item in raw_highlights:
-
-        if not isinstance(
-            item,
-            dict,
-        ):
-            continue
-
-        try:
-
-            start_time = max(
-                0.0,
-                float(
-                    item.get(
-                        "start_time",
-                        0.0,
-                    )
-                ),
-            )
-
-            end_time = max(
-                0.0,
-                float(
-                    item.get(
-                        "end_time",
-                        0.0,
-                    )
-                ),
-            )
-
-            if start_time > end_time:
-
-                start_time, end_time = (
-                    end_time,
-                    start_time,
-                )
-
-            if media_duration > 0:
-
-                start_time = min(
-                    start_time,
-                    media_duration,
-                )
-
-                end_time = min(
-                    end_time,
-                    media_duration,
-                )
-
-            duration = (
-                end_time - start_time
-            )
-
-            if duration < 30.0:
-
-                candidate_end = (
-                    start_time + 30.0
-                )
-
-                if (
-                    media_duration > 0
-                    and candidate_end
-                    > media_duration
-                ):
-
-                    start_time = max(
-                        0.0,
-                        media_duration - 30.0,
-                    )
-
-                    end_time = (
-                        media_duration
-                    )
-
-                else:
-
-                    end_time = (
-                        candidate_end
-                    )
-
-                duration = (
-                    end_time - start_time
-                )
-
-            if duration > 60.0:
-
-                end_time = (
-                    start_time + 60.0
-                )
-
-                duration = (
-                    end_time - start_time
-                )
-
-            if (
-                start_time >= end_time
-                or not (
-                    29.0
-                    <= duration
-                    <= 61.0
-                )
-            ):
-                continue
-
-            item["start_time"] = round(
-                start_time,
-                2,
-            )
-
-            item["end_time"] = round(
-                end_time,
-                2,
-            )
-
-            fixed_list.append(item)
-
-        except (
-            TypeError,
-            ValueError,
-        ):
-
-            continue
-
-    return fixed_list
-
-
-# ============================================================
-# 11. Gemini 하이라이트 추출
-# ============================================================
-
-def run_gemini_highlight_extraction(
-    gemini_api_key: str,
-    segments: list,
-    media_duration: float = 0.0,
-) -> list:
-
-    client = genai.Client(
-        api_key=gemini_api_key
-    )
-
-    preferred_models = [
-        "gemini-3.7-flash",
-        "gemini-3.6-flash",
-        "gemini-2.5-flash",
-    ]
-
-    formatted_transcript = []
-
-    for segment in segments:
-
-        seg_data = extract_segment_data(
-            segment
-        )
-
-        start = round(
-            float(
-                seg_data["start"]
-            ),
-            2,
-        )
-
-        end = round(
-            float(
-                seg_data["end"]
-            ),
-            2,
-        )
-
-        text = str(
-            seg_data["text"]
-        ).strip()
-
-        if text:
-
-            formatted_transcript.append(
-                f"[{start:.2f}s ~ {end:.2f}s] {text}"
-            )
-
-    transcript_text = "\n".join(
-        formatted_transcript
-    )
-
-    prompt = f"""
-너는 뉴스 방송 수석 에디터이자
-YouTube Shorts/TikTok 전문 숏폼 에디터이다.
-
-아래 뉴스 자막 데이터의 타임코드를 분석하여
-숏폼으로 제작하기 가장 좋은 핵심 구간 3곳을 선정하라.
+
+"""비동기로 렌더링되는 Streamlit 콘텐츠에 대해, 지정한 id의 요소로
+
+키보드 포커스를 이동시킨다. 결과가 새로 나타났음을 스크린리더/키보드
+
+사용자에게 알리기 위해 처리 완료 직후 호출한다."""
+
+components.html(
+
+f"""
+
+<script>
+
+function tryFocus(retries) {{
+
+try {{
+
+const el = window.parent.document.getElementById("{element_id}");
+
+if (el) {{
+
+el.focus();
+
+}} else if (retries > 0) {{
+
+setTimeout(() => tryFocus(retries - 1), 150);
+
+}}
+
+}} catch (e) {{}}
+
+}}
+
+tryFocus(10);
+
+</script>
+
+""",
+
+height=0,
+
+width=0,
+
+)
+
+def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
+
+"""st.success / st.info / st.error 를 대체하는 접근성 준수 알림 박스.
+
+스크린리더가 동적 발생 알림을 즉시 인지하도록 aria-live 속성을 명시함."""
+
+css_class = {
+
+"info": "a11y-alert-info",
+
+"success": "a11y-alert-success",
+
+"error": "a11y-alert-error",
+
+}.get(kind, "a11y-alert-info")
+
+
+
+if kind == "error":
+
+role = "alert"
+
+aria_live = "assertive"
+
+else:
+
+role = "status"
+
+aria_live = "polite"
+
+
+
+icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
+
+
+
+st.markdown(
+
+f'<div class="a11y-alert {css_class}" role="{role}" aria-live="{aria_live}">{icon_html}{message}</div>',
+
+unsafe_allow_html=True,
+
+)
+
+def accessible_step(message: str, icon: str = "") -> None:
+
+"""st.status 내부의 단계별 안내 문구를 위한 접근성 준수 텍스트.
+
+문구 갱신 시 스크린리더가 끊김 없이 읽을 수 있도록 role=status 및 aria-live=polite 지정."""
+
+icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
+
+st.markdown(
+
+f'<p class="step-text" role="status" aria-live="polite">{icon_html}{message}</p>',
+
+unsafe_allow_html=True,
+
+)
+
+
+
+==============================================================================
+
+3. 헤더 UI (접근성 태그 및 대체텍스트 적용)
+
+==============================================================================
+
+set_page_language("ko")
+
+st.markdown(
+
+'<div class="title-container">'
+
+'<h1 class="main-title"><span aria-hidden="true">🎬 </span>뉴스 숏폼 하이라이트 자동 추출기</h1>'
+
+'<p class="sub-title">'
+
+'뉴스 음성/영상 파일을 업로드하면 Groq Whisper로 자막과 타임코드를 추출하고, '
+
+'Gemini AI가 30~60초 숏폼 구간 및 자막 타이틀을 자동으로 선정합니다.'
+
+'</p>'
+
+'</div>',
+
+unsafe_allow_html=True,
+
+)
+
+accessible_alert(
+
+"처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
+
+kind="info",
+
+icon="💡",
+
+)
+
+st.divider()
+
+
+
+==============================================================================
+
+4. 유틸리티 함수
+
+==============================================================================
+
+def prepare_audio_for_groq(input_file_path: str) -> str:
+
+output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+
+output_path = output_temp_file.name
+
+output_temp_file.close()
+
+
+
+cmd = [
+
+"ffmpeg", "-y", "-i", input_file_path,
+
+"-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k",
+
+"-f", "mp3", output_path,
+
+]
+
+
+
+try:
+
+subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+
+return output_path
+
+except subprocess.CalledProcessError as e:
+
+if os.path.exists(output_path):
+
+os.remove(output_path)
+
+error_message = e.stderr.decode("utf-8", errors="ignore")
+
+raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
+
+def seconds_to_df_timecode(seconds: float) -> str:
+
+seconds = max(0.0, float(seconds))
+
+total_frames = int(round(seconds * 29.97))
+
+
+
+D = total_frames // 17982
+
+M = total_frames % 17982
+
+
+
+if M >= 2:
+
+total_frames += 18 * D + 2 * ((M - 2) // 1798)
+
+else:
+
+total_frames += 18 * D
+
+
+
+frames = total_frames % 30
+
+total_seconds = total_frames // 30
+
+ss = total_seconds % 60
+
+total_minutes = total_seconds // 60
+
+mm = total_minutes % 60
+
+hh = total_minutes // 60
+
+
+
+return f"{hh:02d}:{mm:02d}:{ss:02d};{frames:02d}"
+
+def seconds_to_min_sec(seconds: float) -> str:
+
+seconds = max(0, int(seconds))
+
+minutes, seconds = divmod(seconds, 60)
+
+return f"{minutes:02d}:{seconds:02d}"
+
+def get_media_duration(file_path: str) -> float:
+
+cmd = [
+
+"ffprobe", "-v", "error", "-show_entries", "format=duration",
+
+"-of", "default=noprint_wrappers=1:nokey=1", file_path,
+
+]
+
+try:
+
+result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+
+return float(result.stdout.strip())
+
+except (subprocess.CalledProcessError, ValueError):
+
+return 0.0
+
+def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
+
+edl_lines = ["TITLE: NEWS_SHORTFORM_HIGHLIGHTS", "FMT: NTSC DF", ""]
+
+for idx, item in enumerate(highlights, 1):
+
+start_time = float(item.get("start_time", 0.0))
+
+end_time = float(item.get("end_time", 0.0))
+
+src_in = seconds_to_df_timecode(start_time)
+
+src_out = seconds_to_df_timecode(end_time)
+
+main_title = str(item.get("main_title", "Highlight"))
+
+sub_title = str(item.get("sub_title", ""))
+
+
+
+edl_lines.append(f"{idx:03d} {reel_name:<8} AA/V C {src_in} {src_out} {src_in} {src_out}")
+
+edl_lines.append(f"* FROM CLIP: {main_title}")
+
+edl_lines.append(f"* COMMENTS: {sub_title}")
+
+edl_lines.append("")
+
+return "\n".join(edl_lines)
+
+==============================================================================
+
+5. Whisper STT
+
+==============================================================================
+
+def extract_segment_data(segment: Any) -> Dict[str, Any]:
+
+if isinstance(segment, dict):
+
+return {
+
+"start": segment.get("start", 0.0),
+
+"end": segment.get("end", 0.0),
+
+"text": segment.get("text", ""),
+
+}
+
+return {
+
+"start": getattr(segment, "start", 0.0),
+
+"end": getattr(segment, "end", 0.0),
+
+"text": getattr(segment, "text", ""),
+
+}
+
+def run_whisper_stt(client: Groq, audio_path: str) -> List[Dict[str, Any]]:
+
+with open(audio_path, "rb") as file:
+
+transcription = client.audio.transcriptions.create(
+
+file=(os.path.basename(audio_path), file.read()),
+
+model="whisper-large-v3",
+
+response_format="verbose_json",
+
+language="ko",
+
+)
+
+raw_segments = getattr(transcription, "segments", []) or []
+
+return [extract_segment_data(seg) for seg in raw_segments]
+
+
+
+==============================================================================
+
+6. 데이터 보정
+
+==============================================================================
+
+def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
+
+fixed_list = []
+
+if not isinstance(raw_highlights, list):
+
+return fixed_list
+
+
+
+for item in raw_highlights:
+
+if not isinstance(item, dict):
+
+continue
+
+try:
+
+start_time = max(0.0, float(item.get("start_time", 0.0)))
+
+end_time = max(0.0, float(item.get("end_time", 0.0)))
+
+
+
+if start_time > end_time:
+
+start_time, end_time = end_time, start_time
+
+
+
+if media_duration > 0:
+
+start_time = min(start_time, media_duration)
+
+end_time = min(end_time, media_duration)
+
+
+
+duration = end_time - start_time
+
+if duration < 30.0:
+
+candidate_end = start_time + 30.0
+
+if media_duration > 0 and candidate_end > media_duration:
+
+start_time = max(0.0, media_duration - 30.0)
+
+end_time = media_duration
+
+else:
+
+end_time = candidate_end
+
+
+
+duration = end_time - start_time
+
+if duration > 60.0:
+
+end_time = start_time + 60.0
+
+
+
+duration = end_time - start_time
+
+if start_time >= end_time or not (29.0 <= duration <= 61.0):
+
+continue
+
+
+
+item["start_time"] = round(start_time, 2)
+
+item["end_time"] = round(end_time, 2)
+
+fixed_list.append(item)
+
+except (TypeError, ValueError):
+
+continue
+
+
+
+return fixed_list
+
+==============================================================================
+
+7. Gemini 하이라이트 추출
+
+==============================================================================
+
+def run_gemini_highlight_extraction(gemini_api_key: str, segments: list, media_duration: float = 0.0) -> list:
+
+client = genai.Client(api_key=gemini_api_key)
+
+preferred_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
+
+
+
+formatted_transcript = []
+
+for segment in segments:
+
+seg_data = extract_segment_data(segment)
+
+start = round(float(seg_data["start"]), 2)
+
+end = round(float(seg_data["end"]), 2)
+
+text = str(seg_data["text"]).strip()
+
+if text:
+
+formatted_transcript.append(f"[{start:.2f}s ~ {end:.2f}s] {text}")
+
+
+
+transcript_text = "\n".join(formatted_transcript)
+
+prompt = f"""
+
+너는 뉴스 방송 수석 에디터이자 YouTube Shorts/TikTok 전문 숏폼 에디터이다.
+
+아래 뉴스 자막 데이터의 타임코드를 분석하여 숏폼으로 제작하기 가장 좋은 핵심 구간 3곳을 선정하라.
 
 [필수 규칙]
 
+
+
 정확히 3개의 하이라이트를 반환한다.
 
-각 구간의 길이는 반드시
-30초 이상 60초 이하여야 한다.
+각 구간의 길이는 반드시 30초 이상 60초 이하여야 한다.
 
-start_time은 선택한 첫 번째 자막의 시작 시간,
-end_time은 마지막 자막의 종료 시간이어야 한다.
+start_time은 선택한 첫 번째 자막의 시작 시간, end_time은 마지막 자막의 종료 시간이어야 한다.
 
-문장이 중간에 잘리지 않는
-완전한 뉴스 맥락을 선택하라.
+문장이 중간에 잘리지 않는 완전한 뉴스 맥락을 선택하라.
 
-영상 전체 길이는 약
-{media_duration:.2f}초이다.
+영상 전체 길이는 약 {media_duration:.2f}초이다.
 
 [뉴스 자막 데이터]
 
 {transcript_text}
+
 """
 
-    gen_config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_schema={
-            "type": "ARRAY",
-            "items": {
-                "type": "OBJECT",
-                "properties": {
-                    "main_title": {
-                        "type": "STRING",
-                        "description": "메인 타이틀 (15자 이내)",
-                    },
-                    "sub_title": {
-                        "type": "STRING",
-                        "description": "핵심 요약 (25자 이내)",
-                    },
-                    "start_time": {
-                        "type": "NUMBER",
-                        "description": "시작 시간(초)",
-                    },
-                    "end_time": {
-                        "type": "NUMBER",
-                        "description": "종료 시간(초)",
-                    },
-                    "reason": {
-                        "type": "STRING",
-                        "description": "선정 이유",
-                    },
-                },
-                "required": [
-                    "main_title",
-                    "sub_title",
-                    "start_time",
-                    "end_time",
-                    "reason",
-                ],
-            },
-        },
-        temperature=0.1,
-    )
+gen_config = types.GenerateContentConfig(
 
-    last_exception = None
+response_mime_type="application/json",
 
-    for model_name in preferred_models:
+response_schema={
 
-        try:
+"type": "ARRAY",
 
-            response = (
-                client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                    config=gen_config,
-                )
-            )
+"items": {
 
-            raw_data = json.loads(
-                response.text
-            )
+"type": "OBJECT",
 
-            sanitized_data = (
-                sanitize_and_fix_highlights(
-                    raw_data,
-                    media_duration,
-                )
-            )
+"properties": {
 
-            if len(sanitized_data) == 3:
+"main_title": {"type": "STRING", "description": "메인 타이틀 (15자 이내)"},
 
-                return sanitized_data
+"sub_title": {"type": "STRING", "description": "핵심 요약 (25자 이내)"},
 
-            last_exception = RuntimeError(
-                f"모델 {model_name}이 "
-                "유효한 3개 구간을 "
-                "반환하지 않았습니다."
-            )
+"start_time": {"type": "NUMBER", "description": "시작 시간(초)"},
 
-        except Exception as error:
+"end_time": {"type": "NUMBER", "description": "종료 시간(초)"},
 
-            last_exception = error
-            continue
+"reason": {"type": "STRING", "description": "선정 이유"},
 
-    raise RuntimeError(
-        "하이라이트 추출에 실패했습니다. "
-        "잠시 후 다시 시도해주세요."
-    ) from last_exception
+},
+
+"required": ["main_title", "sub_title", "start_time", "end_time", "reason"],
+
+},
+
+},
+
+temperature=0.1,
+
+)
 
 
-# ============================================================
-# 12. API Key
-# ============================================================
+
+last_exception = None
+
+for model_name in preferred_models:
+
+try:
+
+response = client.models.generate_content(model=model_name, contents=prompt, config=gen_config)
+
+raw_data = json.loads(response.text)
+
+sanitized_data = sanitize_and_fix_highlights(raw_data, media_duration)
+
+if len(sanitized_data) == 3:
+
+return sanitized_data
+
+else:
+
+last_exception = RuntimeError(f"모델 {model_name}이 유효한 3개 구간을 반환하지 않았습니다.")
+
+except Exception as error:
+
+last_exception = error
+
+continue
+
+
+
+raise RuntimeError("하이라이트 추출에 실패했습니다. 잠시 후 다시 시도해주세요.") from last_exception
+
+==============================================================================
+
+8. API 키 가져오기
+
+==============================================================================
 
 def get_api_keys():
 
-    try:
+groq_api_key = st.secrets.get("GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
 
-        groq_secret = st.secrets.get(
-            "GROQ_API_KEY",
-            None,
-        )
+gemini_api_key = st.secrets.get("GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
 
-        gemini_secret = st.secrets.get(
-            "GEMINI_API_KEY",
-            None,
-        )
-
-    except Exception:
-
-        groq_secret = None
-        gemini_secret = None
-
-    groq_api_key = (
-        groq_secret
-        or os.getenv(
-            "GROQ_API_KEY"
-        )
-    )
-
-    gemini_api_key = (
-        gemini_secret
-        or os.getenv(
-            "GEMINI_API_KEY"
-        )
-    )
-
-    return (
-        groq_api_key,
-        gemini_api_key,
-    )
+return groq_api_key, gemini_api_key
 
 
-# ============================================================
-# 13. 결과 카드
-# ============================================================
 
-def render_highlight_card(
-    index: int,
-    highlight: dict,
-) -> None:
+==============================================================================
 
-    start_sec = float(
-        highlight.get(
-            "start_time",
-            0.0,
-        )
-    )
+9. 메인 애플리케이션 (접근성 보완 구조)
 
-    end_sec = float(
-        highlight.get(
-            "end_time",
-            0.0,
-        )
-    )
-
-    duration = round(
-        end_sec - start_sec,
-        1,
-    )
-
-    title = str(
-        highlight.get(
-            "main_title",
-            f"하이라이트 {index}",
-        )
-    )
-
-    subtitle = str(
-        highlight.get(
-            "sub_title",
-            "-",
-        )
-    )
-
-    reason = str(
-        highlight.get(
-            "reason",
-            "-",
-        )
-    )
-
-    st.markdown(
-        f"""
-        <div class="highlight-card">
-
-            <div class="highlight-badge">
-                SHORTFORM #{index}
-            </div>
-
-            <div class="highlight-title">
-                {title}
-            </div>
-
-            <div class="highlight-subtitle">
-                {subtitle}
-            </div>
-
-            <div class="time-box">
-
-                ⏱️ <strong>타임코드</strong><br>
-
-                {seconds_to_df_timecode(start_sec)}
-                ~
-                {seconds_to_df_timecode(end_sec)}
-
-                <br>
-
-                ⏳ <strong>재생시간</strong><br>
-
-                {seconds_to_min_sec(start_sec)}
-                ~
-                {seconds_to_min_sec(end_sec)}
-
-                ({duration}초)
-
-            </div>
-
-            <div class="reason-text">
-
-                <strong>💡 선정 이유</strong><br>
-
-                {reason}
-
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# 14. 메인 애플리케이션
-# ============================================================
+==============================================================================
 
 def main():
 
-    # --------------------------------------------------------
-    # API Key
-    # --------------------------------------------------------
-
-    groq_api_key, gemini_api_key = (
-        get_api_keys()
-    )
-
-    if (
-        not groq_api_key
-        or not gemini_api_key
-    ):
-
-        accessible_alert(
-            "API 키가 설정되지 않았습니다.",
-            kind="error",
-            icon="⚠️",
-        )
-
-        accessible_alert(
-            "환경 변수 또는 Streamlit Secrets에 "
-            "GROQ_API_KEY와 GEMINI_API_KEY를 "
-            "설정해 주세요.",
-            kind="info",
-        )
-
-        st.stop()
-
-    groq_client = Groq(
-        api_key=groq_api_key
-    )
-
-
-    # --------------------------------------------------------
-    # Header
-    # --------------------------------------------------------
-
-    render_header()
-
-    st.divider()
-
-
-    # --------------------------------------------------------
-    # KPI
-    # --------------------------------------------------------
-
-    kpi_placeholder = st.empty()
-
-    with kpi_placeholder.container():
-
-        render_kpi_cards(
-            media_duration=0.0,
-            segment_count=0,
-            highlight_count=0,
-        )
-
-
-    # --------------------------------------------------------
-    # 1. 파일 업로드
-    # --------------------------------------------------------
-
-    render_section_header(
-        "1",
-        "뉴스 파일 업로드",
-        "분석할 뉴스 음성 또는 영상 파일을 업로드하세요.",
-    )
-
-    # 중요:
-    # 기존처럼 HTML 문자열 안에 업로드 안내 UI를 넣지 않습니다.
-    # Streamlit native 컴포넌트로 구성하여 HTML이 문자로 출력되는 문제를 방지합니다.
-
-    st.markdown(
-        """
-        <div class="upload-info-card">
-
-            <div class="upload-info-title">
-                지원 파일 형식
-            </div>
-
-            <p class="upload-info-text">
-                MP3 · MP4 · TS · MOV · M4A · WAV
-                &nbsp; | &nbsp;
-                최대 1GB
-            </p>
-
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    uploaded_file = st.file_uploader(
-        "뉴스 음성 또는 영상 파일을 선택하세요.",
-        type=[
-            "mp3",
-            "mp4",
-            "ts",
-            "mov",
-            "m4a",
-            "wav",
-        ],
-        help=(
-            "MP3, MP4, TS, MOV, M4A, WAV "
-            "파일을 지원합니다. 최대 1GB입니다."
-        ),
-        label_visibility="collapsed",
-    )
+groq_api_key, gemini_api_key = get_api_keys()
 
-    if uploaded_file is None:
 
-        accessible_alert(
-            "파일을 업로드하시면 하이라이트 분석 및 EDL 생성을 시작할 수 있습니다.",
-            kind="info",
-            icon="📌",
-        )
 
-        return
+if not groq_api_key or not gemini_api_key:
 
+accessible_alert("API 키가 설정되지 않았습니다.", kind="error", icon="⚠️")
 
-    # --------------------------------------------------------
-    # 업로드 파일 정보
-    # --------------------------------------------------------
+accessible_alert(
 
-    file_size_mb = (
-        uploaded_file.size
-        / (1024 * 1024)
-    )
+"환경 변수 또는 Streamlit Secrets에 GROQ_API_KEY와 GEMINI_API_KEY를 설정해 주세요.",
 
-    accessible_alert(
-        f"파일 선택 완료: "
-        f"<strong>{uploaded_file.name}</strong> "
-        f"({file_size_mb:.2f} MB)",
-        kind="success",
-        icon="📁",
-    )
+kind="info",
 
-    if uploaded_file.size > (
-        1024 * 1024 * 1024
-    ):
+)
 
-        accessible_alert(
-            "파일 크기가 1GB를 초과합니다. "
-            "1GB 이하의 파일을 업로드해 주세요.",
-            kind="error",
-        )
+st.stop()
 
-        return
 
 
-    # --------------------------------------------------------
-    # 2. 분석 시작
-    # --------------------------------------------------------
+groq_client = Groq(api_key=groq_api_key)
 
-    render_section_header(
-        "2",
-        "하이라이트 분석",
-        "Whisper STT → Gemini AI → EDIUS EDL 순서로 자동 처리됩니다.",
-    )
 
-    start_button = st.button(
-        "🚀 하이라이트 추출 및 EDL 생성 시작",
-        type="primary",
-        use_container_width=True,
-    )
 
-    if not start_button:
-        return
+# H2 헤딩 정의
 
+st.header("1. 뉴스 파일 업로드")
 
-    # --------------------------------------------------------
-    # 진행률
-    # --------------------------------------------------------
+uploaded_file = st.file_uploader(
 
-    progress_placeholder = st.empty()
+"뉴스 음성 또는 영상 파일을 선택하세요.",
 
-    render_analysis_progress(
-        progress_placeholder,
-        5,
-        "뉴스 미디어 분석을 준비하고 있습니다.",
-        icon="🚀",
-    )
+type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
 
+help="MP3, MP4, TS, MOV 등 다양한 방송 미디어 포맷을 지원합니다.",
 
-    # --------------------------------------------------------
-    # 임시 파일
-    # --------------------------------------------------------
+)
 
-    raw_input_path = None
-    processed_audio_path = None
 
 
-    try:
+if uploaded_file is None:
 
-        with st.status(
-            "🎬 뉴스 미디어를 분석하는 중입니다...",
-            expanded=True,
-        ) as status:
+accessible_alert(
 
-            # =================================================
-            # STEP 1
-            # =================================================
+"파일을 업로드하시면 하이라이트 분석 및 EDL 생성을 시작할 수 있습니다.",
 
-            render_analysis_progress(
-                progress_placeholder,
-                10,
-                "미디어 파일을 준비하고 있습니다.",
-                icon="📁",
-            )
+kind="info",
 
-            accessible_step(
-                "임시 파일 저장 및 오디오 변환(16kHz Mono) 중...",
-                icon="1️⃣",
-            )
+icon="📌",
 
+)
 
-            # -------------------------------------------------
-            # 임시 파일 저장
-            # -------------------------------------------------
+return
 
-            file_extension = (
-                os.path.splitext(
-                    uploaded_file.name
-                )[1]
-            )
 
-            if not file_extension:
-                file_extension = ".bin"
 
-            with tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=file_extension,
-            ) as tmp:
+file_size_mb = uploaded_file.size / (1024 * 1024)
 
-                chunk_size = (
-                    8 * 1024 * 1024
-                )
+accessible_alert(
 
-                while True:
+f"파일 선택 완료: <strong>{uploaded_file.name}</strong> ({file_size_mb:.2f} MB)",
 
-                    chunk = uploaded_file.read(
-                        chunk_size
-                    )
+kind="success",
 
-                    if not chunk:
-                        break
+icon="📁",
 
-                    tmp.write(chunk)
+)
 
-                raw_input_path = tmp.name
 
 
-            # -------------------------------------------------
-            # 영상 길이
-            # -------------------------------------------------
+if uploaded_file.size > (1024 * 1024 * 1024):
 
-            media_duration = (
-                get_media_duration(
-                    raw_input_path
-                )
-            )
+accessible_alert("파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.", kind="error")
 
-            if media_duration <= 0:
+return
 
-                raise RuntimeError(
-                    "미디어 길이를 확인하지 못했습니다. "
-                    "파일이 정상적인 음성/영상 파일인지 확인해주세요."
-                )
 
 
-            # -------------------------------------------------
-            # FFmpeg
-            # -------------------------------------------------
+st.header("2. 하이라이트 분석")
 
-            render_analysis_progress(
-                progress_placeholder,
-                18,
-                "FFmpeg로 음성을 16kHz Mono 오디오로 변환하고 있습니다.",
-                icon="🎧",
-            )
+start_button = st.button("🚀 하이라이트 추출 및 EDL 생성 시작", type="primary", use_container_width=True)
 
-            processed_audio_path = (
-                prepare_audio_for_groq(
-                    raw_input_path
-                )
-            )
 
 
-            render_analysis_progress(
-                progress_placeholder,
-                30,
-                "오디오 변환이 완료되었습니다.",
-                icon="✓",
-            )
+if not start_button:
 
+return
 
-            # =================================================
-            # STEP 2 — Whisper
-            # =================================================
 
-            render_analysis_progress(
-                progress_placeholder,
-                35,
-                "Groq Whisper AI가 음성을 분석하고 있습니다.",
-                icon="🎙️",
-            )
 
-            accessible_step(
-                "Groq Whisper AI를 활용한 자막 및 타임코드 추출 중...",
-                icon="2️⃣",
-            )
+raw_input_path = None
 
-            segments = run_whisper_stt(
-                groq_client,
-                processed_audio_path,
-            )
+processed_audio_path = None
 
 
-            if not segments:
 
-                raise RuntimeError(
-                    "음성에서 자막을 추출하지 못했습니다. "
-                    "오디오 트랙을 확인해주세요."
-                )
+try:
 
+with st.status("🎬 뉴스 미디어를 분석하는 중입니다...", expanded=True) as status:
 
-            render_analysis_progress(
-                progress_placeholder,
-                55,
-                f"자막 구간 {len(segments):,}개를 성공적으로 추출했습니다.",
-                icon="✓",
-            )
+accessible_step("임시 파일 저장 및 오디오 변환(16kHz Mono) 중...", icon="1️⃣")
 
-            accessible_step(
-                f"자막 구간 {len(segments)}개 추출 완료",
-                icon="✓",
-            )
+suffix = "." + uploaded_file.name.split(".")[-1]
 
+with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
 
-            # =================================================
-            # STEP 3 — Gemini
-            # =================================================
+chunk_size = 8 * 1024 * 1024
 
-            render_analysis_progress(
-                progress_placeholder,
-                60,
-                "Gemini AI가 뉴스 맥락을 분석하고 최적의 숏폼 구간을 찾고 있습니다.",
-                icon="🤖",
-            )
+while True:
 
-            accessible_step(
-                "Gemini AI 기반 숏폼(30~60초) 하이라이트 구간 탐색 중...",
-                icon="3️⃣",
-            )
-
-            highlights = (
-                run_gemini_highlight_extraction(
-                    gemini_api_key,
-                    segments,
-                    media_duration,
-                )
-            )
-
-
-            render_analysis_progress(
-                progress_placeholder,
-                82,
-                f"추천 숏폼 구간 {len(highlights)}개를 선정했습니다.",
-                icon="✓",
-            )
-
-
-            # -------------------------------------------------
-            # KPI 업데이트
-            # -------------------------------------------------
-
-            with kpi_placeholder.container():
-
-                render_kpi_cards(
-                    media_duration=media_duration,
-                    segment_count=len(segments),
-                    highlight_count=len(highlights),
-                )
-
-
-            # =================================================
-            # STEP 4 — EDL
-            # =================================================
-
-            render_analysis_progress(
-                progress_placeholder,
-                90,
-                "EDIUS에서 사용할 수 있도록 EDL 파일을 생성하고 있습니다.",
-                icon="🎬",
-            )
-
-            accessible_step(
-                "EDIUS 연동 EDL (CMX 3600) 파일 생성 중...",
-                icon="4️⃣",
-            )
-
-            edl_content = generate_edl(
-                highlights
-            )
-
-
-            # -------------------------------------------------
-            # 완료
-            # -------------------------------------------------
-
-            render_analysis_progress(
-                progress_placeholder,
-                100,
-                "분석 및 EDL 파일 생성이 완료되었습니다.",
-                icon="✓",
-                complete=True,
-            )
-
-            status.update(
-                label="✅ 분석 및 EDL 파일 생성이 완료되었습니다!",
-                state="complete",
-                expanded=False,
-            )
-
+chunk = uploaded_file.read(chunk_size)
 
-        # ====================================================
-        # 완료 알림
-        # ====================================================
+if not chunk:
 
-        accessible_alert(
-            "분석이 완료되었습니다. 추천 숏폼 하이라이트 3건이 아래에 표시됩니다.",
-            kind="success",
-            icon="🎉",
-        )
+break
 
-
-        # ====================================================
-        # 3. 결과
-        # ====================================================
+tmp.write(chunk)
 
-        st.markdown(
-            """
-            <div
-                id="results-heading"
-                tabindex="-1"
-                style="
-                    outline:none;
-                    color:#0F172A;
-                    font-size:1.12rem;
-                    font-weight:800;
-                    margin-top:28px;
-                "
-            >
-                3. 추천 숏폼 하이라이트
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+raw_input_path = tmp.name
 
-        focus_element_by_id(
-            "results-heading"
-        )
 
-
-        st.markdown(
-            """
-            <p
-                style="
-                    color:#64748B;
-                    font-size:0.84rem;
-                    margin:4px 0 14px 0;
-                "
-            >
-                Gemini AI가 뉴스 맥락과 타임코드를 분석하여
-                선정한 30~60초 숏폼 후보입니다.
-            </p>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
-        # ----------------------------------------------------
-        # Highlight Cards
-        # ----------------------------------------------------
-
-        columns = st.columns(3)
-
-        for index, highlight in enumerate(
-            highlights,
-            1,
-        ):
-
-            with columns[index - 1]:
-
-                render_highlight_card(
-                    index,
-                    highlight,
-                )
-
-
-        st.divider()
-
-
-        # ====================================================
-        # 4. EDL 다운로드
-        # ====================================================
-
-        render_section_header(
-            "4",
-            "EDIUS 연동 파일",
-            "생성된 EDL 파일을 다운로드하여 EDIUS 편집 프로젝트에 활용할 수 있습니다.",
-        )
-
-
-        edl_filename = (
-            f"{os.path.splitext(uploaded_file.name)[0]}"
-            f"_shortform.edl"
-        )
-
-
-        st.markdown(
-            f"""
-            <div class="download-card">
-
-                <div class="download-title">
-                    EDIUS용 CMX 3600 EDL
-                </div>
-
-                <div class="download-description">
-                    파일명: {edl_filename}
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-
-        st.download_button(
-            label="💾 EDIUS용 EDL 파일 다운로드",
-            data=edl_content,
-            file_name=edl_filename,
-            mime="text/plain",
-            use_container_width=True,
-        )
-
 
-    # ========================================================
-    # 오류 처리
-    # ========================================================
+media_duration = get_media_duration(raw_input_path)
 
-    except Exception as error:
+processed_audio_path = prepare_audio_for_groq(raw_input_path)
 
-        render_analysis_progress(
-            progress_placeholder,
-            0,
-            "분석 중 오류가 발생했습니다.",
-            icon="❌",
-        )
 
-        accessible_alert(
-            "처리 중 오류가 발생했습니다.",
-            kind="error",
-            icon="❌",
-        )
 
-        st.markdown(
-            """
-            <div
-                style="
-                    background:#FFFFFF;
-                    border:1px solid #E2E8F0;
-                    border-radius:12px;
-                    padding:16px 20px;
-                    color:#334155;
-                    font-size:0.9rem;
-                    line-height:1.7;
-                "
-            >
+accessible_step("Groq Whisper AI를 활용한 자막 및 타임코드 추출 중...", icon="2️⃣")
 
-                <strong>확인해 주세요.</strong>
+segments = run_whisper_stt(groq_client, processed_audio_path)
 
-                <ul>
-                    <li>
-                        오디오 트랙이 정상 포함된
-                        미디어 파일인지 확인해 주세요.
-                    </li>
 
-                    <li>
-                        파일 크기가 1GB 이하인지 확인해 주세요.
-                    </li>
 
-                    <li>
-                        FFmpeg가 정상 설치되어 있는지 확인해 주세요.
-                    </li>
+if not segments:
 
-                    <li>
-                        API Key가 올바르게 설정되어 있는지 확인해 주세요.
-                    </li>
+raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
-                    <li>
-                        지속적인 실패 발생 시 관리자에게 문의해 주세요.
-                    </li>
-                </ul>
 
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
+accessible_step(f"자막 구간 {len(segments)}개 추출 완료", icon="✓")
 
-        if (
-            os.getenv(
-                "APP_DEBUG",
-                "false",
-            ).lower()
-            == "true"
-        ):
 
-            st.exception(error)
 
+accessible_step("Gemini AI 기반 숏폼(30~60초) 하이라이트 구간 탐색 중...", icon="3️⃣")
 
-    # ========================================================
-    # 임시 파일 정리
-    # ========================================================
+highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
 
-    finally:
 
-        for path in [
-            raw_input_path,
-            processed_audio_path,
-        ]:
 
-            if (
-                path
-                and os.path.exists(path)
-            ):
+accessible_step("EDIUS 연동 EDL (CMX 3600) 파일 생성 중...", icon="4️⃣")
 
-                try:
+edl_content = generate_edl(highlights)
 
-                    os.remove(path)
 
-                except OSError:
 
-                    pass
+status.update(label="✅ 분석 및 EDL 파일 생성이 완료되었습니다!", state="complete", expanded=False)
 
 
-# ============================================================
-# 15. 실행
-# ============================================================
 
-if __name__ == "__main__":
-    main()
+# 스크린리더 사용자에게 결과 생성 완료를 알리는 시각적으로 숨겨진 알림.
+
+st.markdown(
+
+'<div class="sr-only" role="status" aria-live="polite">'
+
+'분석이 완료되었습니다. 추천 숏폼 하이라이트 3건이 아래에 표시됩니다.'
+
+'</div>',
+
+unsafe_allow_html=True,
+
+)
+
+
+
+# H2 헤딩 - tabindex="-1"을 부여해 스크립트로 포커스를 이동시킬 수 있도록 함
+
+st.markdown(
+
+'<h2 id="results-heading" tabindex="-1" style="outline:none;">3. 추천 숏폼 하이라이트 (3선)</h2>',
+
+unsafe_allow_html=True,
+
+)
+
+focus_element_by_id("results-heading")
+
+
+
+for index, highlight in enumerate(highlights, 1):
+
+start_sec = float(highlight.get("start_time", 0.0))
+
+end_sec = float(highlight.get("end_time", 0.0))
+
+duration = round(end_sec - start_sec, 1)
+
+
+
+title = str(highlight.get("main_title", f"하이라이트 {index}"))
+
+subtitle = str(highlight.get("sub_title", "-"))
+
+reason = str(highlight.get("reason", "-"))
+
+
+
+st.markdown(
+
+f"""
+
+<article class="highlight-card" aria-labelledby="card-title-{index}">
+
+<span class="badge">SHORTFORM #{index}</span>
+
+<h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.3rem;">{title}</h3>
+
+<p style="margin: 0 0 12px 0; color: #334155; font-weight: 600;">{subtitle}</p>
+
+<div class="time-info" role="region" aria-label="시간 정보">
+
+<span aria-hidden="true">⏱️ </span><strong>타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
+
+<span aria-hidden="true">⏳ </span><strong>재생시간:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
+
+</div>
+
+<p style="margin: 8px 0 0 0; font-size: 0.95rem; color: #334155;">
+
+<strong><span aria-hidden="true">💡 </span>선정 이유:</strong> {reason}
+
+</p>
+
+</article>
+
+""",
+
+unsafe_allow_html=True,
+
+)
+
+
+
+st.divider()
+
+st.header("4. EDIUS 연동 파일 다운로드")
+
+
+
+edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
+
+
+
+st.download_button(
+
+label="💾 EDIUS용 EDL 파일 다운로드",
+
+data=edl_content,
+
+file_name=edl_filename,
+
+mime="text/plain",
+
+use_container_width=True,
+
+)
+
+
+
+except Exception as error:
+
+accessible_alert("처리 중 오류가 발생했습니다.", kind="error", icon="❌")
+
+st.markdown(
+
+'<ul style="color:#334155; font-size:0.95rem;">'
+
+'<li>오디오 트랙이 정상 포함된 미디어 파일인지 확인해 보세요.</li>'
+
+'<li>지속적인 실패 발생 시 관리자에게 문의바랍니다.</li>'
+
+'</ul>',
+
+unsafe_allow_html=True,
+
+)
+
+
+
+if os.getenv("APP_DEBUG", "false").lower() == "true":
+
+st.exception(error)
+
+
+
+finally:
+
+for path in [raw_input_path, processed_audio_path]:
+
+if path and os.path.exists(path):
+
+try:
+
+os.remove(path)
+
+except OSError:
+
+pass
+
+if name == "main":
+
+main()
