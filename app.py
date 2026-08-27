@@ -20,8 +20,6 @@ from google import genai
 
 from google.genai import types
 
-
-
 ==============================================================================
 
 1. 환경 및 페이지 설정
@@ -41,8 +39,6 @@ layout="wide",
 initial_sidebar_state="collapsed",
 
 )
-
-
 
 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
 
@@ -238,8 +234,6 @@ unsafe_allow_html=True,
 
 )
 
-
-
 ==============================================================================
 
 2. 접근성 유틸리티 (언어 설정 / 포커스 이동 / 접근 가능한 알림)
@@ -338,8 +332,6 @@ css_class = {
 
 }.get(kind, "a11y-alert-info")
 
-
-
 if kind == "error":
 
 role = "alert"
@@ -352,11 +344,7 @@ role = "status"
 
 aria_live = "polite"
 
-
-
 icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
-
-
 
 st.markdown(
 
@@ -381,8 +369,6 @@ f'<p class="step-text" role="status" aria-live="polite">{icon_html}{message}</p>
 unsafe_allow_html=True,
 
 )
-
-
 
 ==============================================================================
 
@@ -424,8 +410,6 @@ icon="💡",
 
 st.divider()
 
-
-
 ==============================================================================
 
 4. 유틸리티 함수
@@ -440,8 +424,6 @@ output_path = output_temp_file.name
 
 output_temp_file.close()
 
-
-
 cmd = [
 
 "ffmpeg", "-y", "-i", input_file_path,
@@ -451,8 +433,6 @@ cmd = [
 "-f", "mp3", output_path,
 
 ]
-
-
 
 try:
 
@@ -476,13 +456,9 @@ seconds = max(0.0, float(seconds))
 
 total_frames = int(round(seconds * 29.97))
 
-
-
 D = total_frames // 17982
 
 M = total_frames % 17982
-
-
 
 if M >= 2:
 
@@ -491,8 +467,6 @@ total_frames += 18 * D + 2 * ((M - 2) // 1798)
 else:
 
 total_frames += 18 * D
-
-
 
 frames = total_frames % 30
 
@@ -505,8 +479,6 @@ total_minutes = total_seconds // 60
 mm = total_minutes % 60
 
 hh = total_minutes // 60
-
-
 
 return f"{hh:02d}:{mm:02d}:{ss:02d};{frames:02d}"
 
@@ -555,8 +527,6 @@ src_out = seconds_to_df_timecode(end_time)
 main_title = str(item.get("main_title", "Highlight"))
 
 sub_title = str(item.get("sub_title", ""))
-
-
 
 edl_lines.append(f"{idx:03d} {reel_name:<8} AA/V C {src_in} {src_out} {src_in} {src_out}")
 
@@ -618,8 +588,6 @@ raw_segments = getattr(transcription, "segments", []) or []
 
 return [extract_segment_data(seg) for seg in raw_segments]
 
-
-
 ==============================================================================
 
 6. 데이터 보정
@@ -634,8 +602,6 @@ if not isinstance(raw_highlights, list):
 
 return fixed_list
 
-
-
 for item in raw_highlights:
 
 if not isinstance(item, dict):
@@ -648,21 +614,15 @@ start_time = max(0.0, float(item.get("start_time", 0.0)))
 
 end_time = max(0.0, float(item.get("end_time", 0.0)))
 
-
-
 if start_time > end_time:
 
 start_time, end_time = end_time, start_time
-
-
 
 if media_duration > 0:
 
 start_time = min(start_time, media_duration)
 
 end_time = min(end_time, media_duration)
-
-
 
 duration = end_time - start_time
 
@@ -680,23 +640,17 @@ else:
 
 end_time = candidate_end
 
-
-
 duration = end_time - start_time
 
 if duration > 60.0:
 
 end_time = start_time + 60.0
 
-
-
 duration = end_time - start_time
 
 if start_time >= end_time or not (29.0 <= duration <= 61.0):
 
 continue
-
-
 
 item["start_time"] = round(start_time, 2)
 
@@ -707,8 +661,6 @@ fixed_list.append(item)
 except (TypeError, ValueError):
 
 continue
-
-
 
 return fixed_list
 
@@ -723,8 +675,6 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list, media_d
 client = genai.Client(api_key=gemini_api_key)
 
 preferred_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
-
-
 
 formatted_transcript = []
 
@@ -742,8 +692,6 @@ if text:
 
 formatted_transcript.append(f"[{start:.2f}s ~ {end:.2f}s] {text}")
 
-
-
 transcript_text = "\n".join(formatted_transcript)
 
 prompt = f"""
@@ -753,8 +701,6 @@ prompt = f"""
 아래 뉴스 자막 데이터의 타임코드를 분석하여 숏폼으로 제작하기 가장 좋은 핵심 구간 3곳을 선정하라.
 
 [필수 규칙]
-
-
 
 정확히 3개의 하이라이트를 반환한다.
 
@@ -808,8 +754,6 @@ temperature=0.1,
 
 )
 
-
-
 last_exception = None
 
 for model_name in preferred_models:
@@ -836,8 +780,6 @@ last_exception = error
 
 continue
 
-
-
 raise RuntimeError("하이라이트 추출에 실패했습니다. 잠시 후 다시 시도해주세요.") from last_exception
 
 ==============================================================================
@@ -854,8 +796,6 @@ gemini_api_key = st.secrets.get("GEMINI_API_KEY", None) or os.getenv("GEMINI_API
 
 return groq_api_key, gemini_api_key
 
-
-
 ==============================================================================
 
 9. 메인 애플리케이션 (접근성 보완 구조)
@@ -865,8 +805,6 @@ return groq_api_key, gemini_api_key
 def main():
 
 groq_api_key, gemini_api_key = get_api_keys()
-
-
 
 if not groq_api_key or not gemini_api_key:
 
@@ -882,11 +820,7 @@ kind="info",
 
 st.stop()
 
-
-
 groq_client = Groq(api_key=groq_api_key)
-
-
 
 # H2 헤딩 정의
 
@@ -902,8 +836,6 @@ help="MP3, MP4, TS, MOV 등 다양한 방송 미디어 포맷을 지원합니다
 
 )
 
-
-
 if uploaded_file is None:
 
 accessible_alert(
@@ -918,8 +850,6 @@ icon="📌",
 
 return
 
-
-
 file_size_mb = uploaded_file.size / (1024 * 1024)
 
 accessible_alert(
@@ -932,33 +862,23 @@ icon="📁",
 
 )
 
-
-
 if uploaded_file.size > (1024 * 1024 * 1024):
 
 accessible_alert("파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.", kind="error")
 
 return
 
-
-
 st.header("2. 하이라이트 분석")
 
 start_button = st.button("🚀 하이라이트 추출 및 EDL 생성 시작", type="primary", use_container_width=True)
-
-
 
 if not start_button:
 
 return
 
-
-
 raw_input_path = None
 
 processed_audio_path = None
-
-
 
 try:
 
@@ -984,45 +904,29 @@ tmp.write(chunk)
 
 raw_input_path = tmp.name
 
-
-
 media_duration = get_media_duration(raw_input_path)
 
 processed_audio_path = prepare_audio_for_groq(raw_input_path)
-
-
 
 accessible_step("Groq Whisper AI를 활용한 자막 및 타임코드 추출 중...", icon="2️⃣")
 
 segments = run_whisper_stt(groq_client, processed_audio_path)
 
-
-
 if not segments:
 
 raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
-
-
 accessible_step(f"자막 구간 {len(segments)}개 추출 완료", icon="✓")
-
-
 
 accessible_step("Gemini AI 기반 숏폼(30~60초) 하이라이트 구간 탐색 중...", icon="3️⃣")
 
 highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
 
-
-
 accessible_step("EDIUS 연동 EDL (CMX 3600) 파일 생성 중...", icon="4️⃣")
 
 edl_content = generate_edl(highlights)
 
-
-
 status.update(label="✅ 분석 및 EDL 파일 생성이 완료되었습니다!", state="complete", expanded=False)
-
-
 
 # 스크린리더 사용자에게 결과 생성 완료를 알리는 시각적으로 숨겨진 알림.
 
@@ -1038,8 +942,6 @@ unsafe_allow_html=True,
 
 )
 
-
-
 # H2 헤딩 - tabindex="-1"을 부여해 스크립트로 포커스를 이동시킬 수 있도록 함
 
 st.markdown(
@@ -1052,8 +954,6 @@ unsafe_allow_html=True,
 
 focus_element_by_id("results-heading")
 
-
-
 for index, highlight in enumerate(highlights, 1):
 
 start_sec = float(highlight.get("start_time", 0.0))
@@ -1062,15 +962,11 @@ end_sec = float(highlight.get("end_time", 0.0))
 
 duration = round(end_sec - start_sec, 1)
 
-
-
 title = str(highlight.get("main_title", f"하이라이트 {index}"))
 
 subtitle = str(highlight.get("sub_title", "-"))
 
 reason = str(highlight.get("reason", "-"))
-
-
 
 st.markdown(
 
@@ -1106,17 +1002,11 @@ unsafe_allow_html=True,
 
 )
 
-
-
 st.divider()
 
 st.header("4. EDIUS 연동 파일 다운로드")
 
-
-
 edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
-
-
 
 st.download_button(
 
@@ -1131,8 +1021,6 @@ mime="text/plain",
 use_container_width=True,
 
 )
-
-
 
 except Exception as error:
 
@@ -1152,13 +1040,9 @@ unsafe_allow_html=True,
 
 )
 
-
-
 if os.getenv("APP_DEBUG", "false").lower() == "true":
 
 st.exception(error)
-
-
 
 finally:
 
