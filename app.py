@@ -130,28 +130,33 @@ def run_whisper_stt(client: Groq, audio_path: str):
 
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list) -> list:
     """
-    실시간 활성화된 Gemini 모델을 조회하여 Schema Enforcement 적용 후 하이라이트 추천
+    Gemini 최신 추천 모델(gemini-3.6-flash 및 동적 활성 모델)을 사용하여
+    Schema Enforcement 적용 후 하이라이트 추천
     """
     client = genai.Client(api_key=gemini_api_key)
     
-    # 1. 사용 가능한 모델 동적 조회 (404 NOT_FOUND 원천 방지)
-    candidate_models = []
+    # 1. API 에러 메시지가 공식 안내한 최신 모델 우선 배치
+    preferred_models = [
+        "gemini-3.6-flash",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash"
+    ]
+    
+    # 2. 계정 내 활성화된 모델 목록 동적 조회
+    active_models = []
     try:
         for m in client.models.list():
-            # generateContent 지원 모델만 추출
-            supported = getattr(m, 'supported_generation_methods', []) or getattr(m, 'supported_actions', [])
-            if "generateContent" in supported or not supported:
-                name = m.name.replace("models/", "") if hasattr(m, 'name') else str(m)
-                candidate_models.append(name)
+            model_id = getattr(m, 'name', '') or str(m)
+            # 'models/' 접두사 정제
+            clean_id = model_id.replace("models/", "")
+            active_models.append(clean_id)
     except Exception:
         pass
 
-    # 선호 모델 우선순위 정렬 (조회된 목록에 없으면 기본 우선순위 사용)
-    preferred_order = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash"]
-    
-    final_models = [m for m in preferred_order if m in candidate_models]
+    # 우선순위 목록 중 실제 활성화된 모델 선택 (조회 실패 시 preferred_models 유지)
+    final_models = [m for m in preferred_models if m in active_models]
     if not final_models:
-        final_models = candidate_models if candidate_models else preferred_order
+        final_models = preferred_models
 
     condensed_segments = []
     for seg in segments:
