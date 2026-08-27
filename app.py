@@ -1,23 +1,21 @@
-import os
+import html
 import json
+import os
 import subprocess
 import tempfile
-from typing import Any, List, Dict
+from typing import Any, Dict, List
 
+from google import genai
+from google.genai import types
+from groq import Groq
 import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
-from groq import Groq
-from google import genai
-from google.genai import types
-
 
 # ==============================================================================
 # 1. 환경 및 페이지 설정
 # ==============================================================================
-
 load_dotenv()
-
 st.set_page_config(
     page_title="뉴스 숏폼 하이라이트 추출기",
     page_icon="🎬",
@@ -40,12 +38,12 @@ st.markdown(
     .main-title {
         font-size: 2.2rem;
         font-weight: 700;
-        color: #0F172A; /* 실측 대비 약 17.9:1 (배경 #FFFFFF 기준) */
+        color: #0F172A; /* 실측 대비 약 17.9:1 */
         margin-bottom: 0.5rem;
     }
     .sub-title {
         font-size: 1.05rem;
-        color: #334155; /* 실측 대비 약 10.4:1 (배경 #FFFFFF 기준) */
+        color: #334155; /* 실측 대비 약 10.4:1 */
         margin-bottom: 0;
         line-height: 1.6;
     }
@@ -58,7 +56,7 @@ st.markdown(
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .badge {
-        background-color: #1D4ED8; /* 실측 대비 약 6.7:1 (배경 #FFFFFF 기준) */
+        background-color: #1D4ED8; /* 실측 대비 약 6.7:1 */
         color: #FFFFFF;
         padding: 4px 10px;
         border-radius: 6px;
@@ -77,7 +75,21 @@ st.markdown(
         margin: 12px 0;
         border-radius: 0 6px 6px 0;
     }
-    /* 접근 가능한 알림(alert) 박스 - st.success/info/error 대체용 */
+    
+    /* 접근 가능한 포커스 링 (WCAG 2.4.7 Focus Visible 준수) */
+    .focusable-heading {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        padding: 4px 8px;
+        border-radius: 6px;
+        color: #0F172A;
+    }
+    .focusable-heading:focus, .focusable-heading:focus-visible {
+        outline: 3px solid #1D4ED8 !important;
+        outline-offset: 3px !important;
+    }
+
+    /* 접근 가능한 알림(alert) 박스 */
     .a11y-alert {
         border-radius: 8px;
         padding: 14px 16px;
@@ -89,17 +101,17 @@ st.markdown(
     .a11y-alert-info {
         background-color: #EFF6FF;
         border-color: #BFDBFE;
-        color: #1E3A8A; /* 대비 확보 */
+        color: #1E3A8A;
     }
     .a11y-alert-success {
         background-color: #F0FDF4;
         border-color: #BBF7D0;
-        color: #14532D; /* 대비 확보 */
+        color: #14532D;
     }
     .a11y-alert-error {
         background-color: #FEF2F2;
         border-color: #FECACA;
-        color: #7F1D1D; /* 대비 확보 */
+        color: #7F1D1D;
     }
     .step-text {
         color: #0F172A;
@@ -123,15 +135,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ==============================================================================
-# 2. 접근성 유틸리티 (언어 설정 / 포커스 이동 / 접근 가능한 알림)
+# 2. 접근성 유틸리티
 # ==============================================================================
-
 def set_page_language(lang_code: str = "ko") -> None:
     """페이지 전체 언어를 명시적으로 지정하여 스크린리더가 올바른 발음 규칙을
-    사용하도록 강제한다. Streamlit이 기본 lang 속성을 안정적으로 노출하지
-    않으므로, 부모 문서(document)의 <html lang> 속성을 직접 설정한다."""
+    사용하도록 강제한다."""
     components.html(
         f"""
         <script>
@@ -146,9 +155,7 @@ def set_page_language(lang_code: str = "ko") -> None:
 
 
 def focus_element_by_id(element_id: str) -> None:
-    """비동기로 렌더링되는 Streamlit 콘텐츠에 대해, 지정한 id의 요소로
-    키보드 포커스를 이동시킨다. 결과가 새로 나타났음을 스크린리더/키보드
-    사용자에게 알리기 위해 처리 완료 직후 호출한다."""
+    """지정한 id의 요소로 키보드 포커스를 이동시킨다."""
     components.html(
         f"""
         <script>
@@ -171,8 +178,7 @@ def focus_element_by_id(element_id: str) -> None:
 
 
 def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
-    """st.success / st.info / st.error 를 대체하는 접근성 준수 알림 박스.
-    스크린리더가 동적 발생 알림을 즉시 인지하도록 aria-live 속성을 명시함."""
+    """접근성 준수 알림 박스 (aria-live 명시)"""
     css_class = {
         "info": "a11y-alert-info",
         "success": "a11y-alert-success",
@@ -195,8 +201,7 @@ def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
 
 
 def accessible_step(message: str, icon: str = "") -> None:
-    """st.status 내부의 단계별 안내 문구를 위한 접근성 준수 텍스트.
-    문구 갱신 시 스크린리더가 끊김 없이 읽을 수 있도록 role=status 및 aria-live=polite 지정."""
+    """st.status 내부 단계별 안내 문구"""
     icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
     st.markdown(
         f'<p class="step-text" role="status" aria-live="polite">{icon_html}{message}</p>',
@@ -205,22 +210,19 @@ def accessible_step(message: str, icon: str = "") -> None:
 
 
 # ==============================================================================
-# 3. 헤더 UI (접근성 태그 및 대체텍스트 적용)
+# 3. 헤더 UI (시맨틱 <header> 랜드마크 적용)
 # ==============================================================================
-
 set_page_language("ko")
-
 st.markdown(
-    '<div class="title-container">'
+    '<header class="title-container" role="banner">'
     '<h1 class="main-title"><span aria-hidden="true">🎬 </span>뉴스 숏폼 하이라이트 자동 추출기</h1>'
     '<p class="sub-title">'
     '뉴스 음성/영상 파일을 업로드하면 Groq Whisper로 자막과 타임코드를 추출하고, '
     'Gemini AI가 30~60초 숏폼 구간 및 자막 타이틀을 자동으로 선정합니다.'
     '</p>'
-    '</div>',
+    '</header>',
     unsafe_allow_html=True,
 )
-
 accessible_alert(
     "처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
     kind="info",
@@ -228,11 +230,9 @@ accessible_alert(
 )
 st.divider()
 
-
 # ==============================================================================
 # 4. 유틸리티 함수
 # ==============================================================================
-
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -314,7 +314,6 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
 # ==============================================================================
 # 5. Whisper STT
 # ==============================================================================
-
 def extract_segment_data(segment: Any) -> Dict[str, Any]:
     if isinstance(segment, dict):
         return {
@@ -344,7 +343,6 @@ def run_whisper_stt(client: Groq, audio_path: str) -> List[Dict[str, Any]]:
 # ==============================================================================
 # 6. 데이터 보정
 # ==============================================================================
-
 def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
     fixed_list = []
     if not isinstance(raw_highlights, list):
@@ -393,7 +391,6 @@ def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.
 # ==============================================================================
 # 7. Gemini 하이라이트 추출
 # ==============================================================================
-
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list, media_duration: float = 0.0) -> list:
     client = genai.Client(api_key=gemini_api_key)
     preferred_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
@@ -461,7 +458,6 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list, media_d
 # ==============================================================================
 # 8. API 키 가져오기
 # ==============================================================================
-
 def get_api_keys():
     groq_api_key = st.secrets.get("GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
     gemini_api_key = st.secrets.get("GEMINI_API_KEY", None) or os.getenv("GEMINI_API_KEY")
@@ -469,9 +465,8 @@ def get_api_keys():
 
 
 # ==============================================================================
-# 9. 메인 애플리케이션 (접근성 보완 구조)
+# 9. 메인 애플리케이션
 # ==============================================================================
-
 def main():
     groq_api_key, gemini_api_key = get_api_keys()
 
@@ -485,7 +480,6 @@ def main():
 
     groq_client = Groq(api_key=groq_api_key)
 
-    # H2 헤딩 정의
     st.header("1. 뉴스 파일 업로드")
     uploaded_file = st.file_uploader(
         "뉴스 음성 또는 영상 파일을 선택하세요.",
@@ -501,9 +495,11 @@ def main():
         )
         return
 
+    # [개선 3] 파일명 html.escape() 적용으로 XSS 방지 및 DOM 안전성 확보
+    safe_filename = html.escape(uploaded_file.name)
     file_size_mb = uploaded_file.size / (1024 * 1024)
     accessible_alert(
-        f"파일 선택 완료: <strong>{uploaded_file.name}</strong> ({file_size_mb:.2f} MB)",
+        f"파일 선택 완료: <strong>{safe_filename}</strong> ({file_size_mb:.2f} MB)",
         kind="success",
         icon="📁",
     )
@@ -553,7 +549,6 @@ def main():
 
             status.update(label="✅ 분석 및 EDL 파일 생성이 완료되었습니다!", state="complete", expanded=False)
 
-        # 스크린리더 사용자에게 결과 생성 완료를 알리는 시각적으로 숨겨진 알림.
         st.markdown(
             '<div class="sr-only" role="status" aria-live="polite">'
             '분석이 완료되었습니다. 추천 숏폼 하이라이트 3건이 아래에 표시됩니다.'
@@ -561,9 +556,9 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # H2 헤딩 - tabindex="-1"을 부여해 스크립트로 포커스를 이동시킬 수 있도록 함
+        # [개선 1] focus-visible 포커스 링이 정삼 작동하도록 style="outline:none;" 제거 및 class 추가
         st.markdown(
-            '<h2 id="results-heading" tabindex="-1" style="outline:none;">3. 추천 숏폼 하이라이트 (3선)</h2>',
+            '<h2 id="results-heading" class="focusable-heading" tabindex="-1">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
         )
         focus_element_by_id("results-heading")
@@ -573,9 +568,12 @@ def main():
             end_sec = float(highlight.get("end_time", 0.0))
             duration = round(end_sec - start_sec, 1)
 
-            title = str(highlight.get("main_title", f"하이라이트 {index}"))
-            subtitle = str(highlight.get("sub_title", "-"))
-            reason = str(highlight.get("reason", "-"))
+            title = html.escape(str(highlight.get("main_title", f"하이라이트 {index}")))
+            subtitle = html.escape(str(highlight.get("sub_title", "-")))
+            reason = html.escape(str(highlight.get("reason", "-")))
+
+            # [개선 2] aria-label을 카드별 고유 타이틀이 포함되도록 동적 구성
+            region_aria_label = html.escape(f"{title} 타임코드 및 재생시간 정보")
 
             st.markdown(
                 f"""
@@ -583,7 +581,7 @@ def main():
                     <span class="badge">SHORTFORM #{index}</span>
                     <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.3rem;">{title}</h3>
                     <p style="margin: 0 0 12px 0; color: #334155; font-weight: 600;">{subtitle}</p>
-                    <div class="time-info" role="region" aria-label="시간 정보">
+                    <div class="time-info" role="region" aria-label="{region_aria_label}">
                         <span aria-hidden="true">⏱️ </span><strong>타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
                         <span aria-hidden="true">⏳ </span><strong>재생시간:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
                     </div>
