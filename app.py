@@ -21,9 +21,6 @@ from google import genai
 from google.genai import types
 
 
-1. 환경 및 페이지 설정
-
-
 load_dotenv()
 
 st.set_page_config(
