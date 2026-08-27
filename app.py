@@ -129,13 +129,14 @@ def run_whisper_stt(client: Groq, audio_path: str):
 
 def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
     """
-    Groq 최신 지원 모델(Llama 3.3/3.1) 기반 숏폼 하이라이트 구간 자동 추천
+    Groq 최신 공식 지원 모델 기반 숏폼 하이라이트 구간 자동 추천
     """
-    # Groq 공식 가이드 기준 유효한 최신 모델만 배치
+    # 2026년 기준 Groq 공식 서비스 중인 최신 메인 모델 및 경량 모델
     candidate_models = [
         "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "llama-3.1-70b-versatile"
+        "llama-3.3-70b-specdec",
+        "llama-3.2-11b-vision-preview",
+        "llama-3.2-3b-preview"
     ]
     
     condensed_segments = []
@@ -153,7 +154,20 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
 [선정 기준]
 1. 각 구간은 반드시 30초 이상 60초 이하이어야 한다.
 2. 시청자의 후킹을 유도하는 주요 발언이나 사건의 핵심 요약이 담긴 구간이어야 한다.
-3. 반드시 [ {"main_title": "...", "sub_title": "...", "start_time": 12.5, "end_time": 45.2, "reason": "..."} ] 형태의 순수 JSON 배열(List)로만 응답하라.
+3. 응답은 반드시 "highlights"라는 키 안에 배열을 담은 JSON 객체 형태로 출력하라.
+
+[응답 JSON 형식 예시]
+{
+  "highlights": [
+    {
+      "main_title": "메인 자막 타이틀",
+      "sub_title": "부제목/요약",
+      "start_time": 12.5,
+      "end_time": 45.2,
+      "reason": "선정 이유"
+    }
+  ]
+}
 """
 
     user_prompt = f"다음 뉴스 자막 데이터에서 숏폼 하이라이트 구간 3곳을 선정해줘:\n\n{json.dumps(condensed_segments, ensure_ascii=False)}"
@@ -161,24 +175,19 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
     last_exception = None
     for model_name in candidate_models:
         try:
-            # 기본 파라미터 구성
-            kwargs = {
-                "model": model_name,
-                "messages": [
+            # Groq API JSON Mode 적용
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                "temperature": 0.1
-            }
-
-            # Llama 3.3 및 3.1 모델 JSON Mode 호환 설정
-            if "llama-3.3" in model_name or "llama-3.1" in model_name:
-                kwargs["response_format"] = {"type": "json_object"}
-
-            response = client.chat.completions.create(**kwargs)
+                temperature=0.1,
+                response_format={"type": "json_object"}
+            )
             content = response.choices[0].message.content.strip()
             
-            # 마크다운 백틱 및 기타 텍스트 정제
+            # 마크다운 백틱 및 텍스트 정제
             if "```" in content:
                 content = content.split("```")[1]
                 if content.startswith("json"):
@@ -186,12 +195,13 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
             
             data = json.loads(content.strip())
             
-            # JSON 래핑 형태(dict)로 반환된 경우 내부 list 추출
+            # 파싱 방어 로직 (객체 또는 배열에서 하이라이트 목록 추출)
             if isinstance(data, dict):
+                if "highlights" in data and isinstance(data["highlights"], list):
+                    return data["highlights"]
                 for k, v in data.items():
                     if isinstance(v, list):
                         return v
-                # 리스트를 찾지 못했으나 객체 자체에 데이터가 있는 경우 래핑
                 if "main_title" in data or "start_time" in data:
                     return [data]
             elif isinstance(data, list):
@@ -202,7 +212,6 @@ def run_llama_highlight_extraction(client: Groq, segments: list) -> list:
             continue
 
     raise RuntimeError(f"모든 후보 모델 호출에 실패했습니다. 마지막 오류: {last_exception}")
-
 # ------------------------------------------------------------------------------
 # 5. UI 메인 레이아웃 및 핸들러
 # ------------------------------------------------------------------------------
