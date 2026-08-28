@@ -42,8 +42,6 @@ _ICON_PATHS = {
     "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     "timer": '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
     "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
-    "cpu": '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/>',
-    "sparkles": '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 tZ"/>'
 }
 
 def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: float = 2) -> str:
@@ -100,53 +98,6 @@ st.markdown(
     .a11y-alert-info {{ background:var(--brand-tint); color:var(--brand-dark); }}
     .a11y-alert-error {{ background:#FEF2F2; border-color:#FECACA; color:#991B1B; border:1px solid; }}
 
-    /* 모던 대시보드 섹션 헤더 (노션 느낌 대체) */
-    .dashboard-header {{
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin: 40px 0 16px;
-        padding-bottom: 8px;
-        border-bottom: 2px solid var(--border);
-    }}
-    .dashboard-header-left {{
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }}
-    .dashboard-accent-bar {{
-        width: 4px;
-        height: 18px;
-        background-color: var(--brand);
-        border-radius: 2px;
-    }}
-    .dashboard-title {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        letter-spacing: -0.3px;
-        margin: 0;
-    }}
-    .dashboard-badge {{
-        font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.75rem;
-        font-weight: 600;
-        background: var(--brand-tint);
-        color: var(--brand-dark);
-        padding: 3px 8px;
-        border-radius: 6px;
-    }}
-
-    .process-panel {{
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 24px 20px 12px 20px;
-        box-shadow: var(--shadow-md);
-        margin-top: 12px;
-    }}
-
     [data-testid="stFileUploader"] {{
         background-color: var(--bg-base);
         border: 2px dashed #CBD5E1 !important;
@@ -158,7 +109,7 @@ st.markdown(
 
     .stepper-container {{
         display: flex; justify-content: space-between; position: relative; 
-        margin: 12px 0 24px; padding: 0 20px;
+        margin: 24px 0 36px; padding: 0 20px;
     }}
     .stepper-container::before {{
         content: ""; position: absolute; top: 15px; left: 50px; right: 50px; height: 2px;
@@ -209,7 +160,6 @@ st.markdown(
     .dl-wrapper {{ 
         flex-direction: row; align-items: center; justify-content: space-between; 
         background-color: var(--brand-tint); border-color: #DBEAFE;
-        margin-top: 12px;
     }}
     .download-icon-box {{
         width:48px; height:48px; border-radius:10px; background:var(--surface); color:var(--brand);
@@ -279,20 +229,6 @@ def render_header() -> None:
     )
     accessible_alert("처리 완료 시 편집기(EDIUS 등)에 즉시 임포트 가능한 타임코드 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
 
-def render_dashboard_header(title: str, badge: str = "", icon_name: str = "") -> None:
-    icon_html = f"{icon(icon_name, 18, BRAND)} " if icon_name else ""
-    badge_html = f'<span class="dashboard-badge">{badge}</span>' if badge else ""
-    st.markdown(
-        f'<div class="dashboard-header">'
-        f'<div class="dashboard-header-left">'
-        f'<div class="dashboard-accent-bar"></div>'
-        f'<h2 class="dashboard-title">{icon_html}{title}</h2>'
-        f'</div>'
-        f'{badge_html}'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
 # ==============================================================================
 # 4. 파이프라인 및 방송 데이터 포맷팅
 # ==============================================================================
@@ -323,7 +259,7 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
             f'</div>'
         )
     html_str += '</div>'
-    placeholder.markdown(f'<div class="process-panel">{html_str}</div>', unsafe_allow_html=True)
+    placeholder.markdown(html_str, unsafe_allow_html=True)
 
 def seconds_to_timecode(seconds: float, fps: int = 30) -> str:
     total_frames = int(round(seconds * fps))
@@ -380,7 +316,8 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 def main():
     render_header()
 
-    render_dashboard_header("미디어 소스 업로드", "STEP 01", "film")
+    st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
+    
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
     if uploaded_file:
@@ -389,7 +326,8 @@ def main():
         start_button = False
         return
     
-    render_dashboard_header("시스템 프로세스 현황", "REALTIME PIPELINE", "cpu")
+    st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+    
     pipe_placeholder = st.empty()
     render_pipeline(pipe_placeholder, active_index=-1)
 
@@ -407,14 +345,14 @@ def main():
         edl_content = generate_edl(highlights)
         render_pipeline(pipe_placeholder, active_index=3, done=True)
 
-        render_dashboard_header("AI 추천 숏폼 하이라이트", "TOP 3 SELECTION", "sparkles")
+        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
 
         h_cols = st.columns(3)
         for index, highlight in enumerate(highlights):
             with h_cols[index % 3]:
                 render_highlight_card(index, highlight)
 
-        render_dashboard_header("편집기 연동 패키지 다운로드", "EDL OUTPUT", "doc")
+        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
@@ -426,7 +364,7 @@ def main():
             f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
             f'<div>'
             f'<div class="file-name">{html.escape(edl_filename)}</div>'
-            f'<div class="file-meta">CMX 3600 타임코드 구조 규격 (EDIUS, Premiere 연동 호환)</div>'
+            f'<div class="file-meta">CMX 3600 Format 타임코드 데이터</div>'
             f'</div>'
             f'</div>'
             f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">EDL 파일 다운로드</a>'
