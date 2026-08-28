@@ -138,17 +138,11 @@ st.markdown(
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
-    /* 하이라이트 카드 스타일 및 마우스 오버 효과 */
+    /* 하이라이트 카드 스타일 (마우스 오버 효과 제거) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:24px; height:100%; box-shadow: var(--shadow-sm);
         display:flex; flex-direction:column; gap:12px;
-        transition: all 0.2s ease;
-    }}
-    .h-card:hover {{
-        border-color: var(--brand);
-        box-shadow: var(--shadow-md);
-        transform: translateY(-2px);
     }}
     
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
@@ -166,19 +160,13 @@ st.markdown(
     
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 다운로드 박스 래퍼 스타일 (하이라이트 카드와 동일한 hover 효과 적용) */
+    /* 다운로드 박스 래퍼 스타일 (다른 카드들과 동일하게 통일, hover 제거) */
     [data-testid="stVerticalBlockBorderWrapper"] {{
         background: var(--surface) !important;
         border: 1px solid var(--border) !important;
         border-radius: 12px !important;
         box-shadow: var(--shadow-sm) !important;
-        padding: 4px 8px !important; /* 패딩 유지 */
-        transition: all 0.2s ease !important;
-    }}
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
-        border-color: var(--brand) !important;
-        box-shadow: var(--shadow-md) !important;
-        transform: translateY(-2px) !important;
+        padding: 4px 8px !important;
     }}
 
     .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
