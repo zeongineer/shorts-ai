@@ -490,7 +490,9 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
             last_exception = error
             continue
 
-    raise RuntimeError("하이라이트 추출에 실패했습니다. 잠시 후 다시 시도해주세요.") from last_exception
+    if last_exception:
+        raise RuntimeError(f"하이라이트 추출에 실패했습니다: {last_exception}") from last_exception
+    raise RuntimeError("하이라이트 추출에 실패했습니다. 원인을 알 수 없습니다.")
 
 # ==============================================================================
 # 5. 하이라이트 카드 렌더링
