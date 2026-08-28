@@ -4,10 +4,17 @@ import subprocess
 import tempfile
 import base64
 from typing import Any, Dict, List
+import json
 
 import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+# openai-whisper 패키지는 `import whisper`로 임포트합니다 (requirements.txt의
+# openai-whisper, torch가 이 STT 파이프라인을 위한 것입니다).
+import whisper
 
 # ==============================================================================
 # 1. 환경 및 페이지 설정
@@ -23,6 +30,20 @@ st.set_page_config(
 BRAND = "#1E3A8A" 
 BRAND_DARK = "#1E40AF"
 BRAND_TINT = "#EFF6FF"
+
+# Whisper 로컬 모델 크기. Streamlit Community Cloud(무료 티어, 1GB RAM 근처)
+# 기준으로는 "base"가 속도/정확도/메모리의 균형점입니다. 환경변수로 조정 가능.
+WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
+
+
+def get_gemini_api_key() -> str:
+    """GitHub에 커밋되는 .env 대신, 배포 환경(Streamlit Community Cloud)에서는
+    st.secrets(Settings > Secrets)를 우선 사용합니다. 로컬 개발 시에만 .env로 폴백합니다."""
+    try:
+        secret_key = st.secrets.get("GEMINI_API_KEY", None)
+    except Exception:
+        secret_key = None
+    return secret_key or os.getenv("GEMINI_API_KEY")
 
 # ==============================================================================
 # 2. 아이콘 (SVG, Lucide 스타일)
@@ -222,7 +243,7 @@ def render_header() -> None:
         '<header class="app-header">'
         '<div class="app-title-group">'
         '<h1 class="app-title">뉴스 숏폼 하이라이트 자동 추출기</h1>'
-        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 Whisper AI로 자막을 추출하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
+        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 자막을 분석하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
         '</div>'
         '</header>',
         unsafe_allow_html=True,
@@ -280,12 +301,189 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
         edl_lines.extend([line1, line2])
     return "\n".join(edl_lines) + "\n"
 
-def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
-    return [ 
-        {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "카운트다운부터 엔진 점화, 이륙까지 긴장감이 고조되는 핵심 텐션 구간입니다. 시각적 임팩트가 크고 앵커의 격앙된 현장 멘트가 맞물려 숏폼 플랫폼 내 초기 시청 이탈률을 방어하기에 가장 적합합니다."},
-        {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "현장의 긴박한 피해 상황(CCTV)과 기상 캐스터의 요약 브리핑이 속도감 있게 교차 편집된 구간입니다. 재난/날씨 관련 숏폼 특성상 시청자들의 경각심을 자극하여 높은 바이럴(공유) 수치를 이끌어낼 수 있습니다."},
-        {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "노사 간의 첨예한 갈등 상황을 양측 인터뷰와 핵심 그래픽 자료로 40초 안에 압축하여 전달합니다. 시청자들의 적극적인 댓글 참여와 토론을 유도하기 좋은 전형적인 '정보 전달형' 숏폼 구성입니다."}
+def get_media_duration(file_path: str) -> float:
+    """ffprobe로 미디어 전체 길이(초)를 조회합니다. 하이라이트 구간이
+    영상 실제 길이를 벗어나지 않도록 검증하는 데 사용됩니다."""
+    cmd = [
+        "ffprobe", "-v", "error", "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1", file_path,
     ]
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
+        return 0.0
+
+
+def convert_to_wav(input_file_path: str) -> str:
+    """Whisper 입력용으로 16kHz 모노 WAV로 변환합니다. packages.txt의
+    ffmpeg 시스템 패키지가 설치되어 있어야 동작합니다."""
+    output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+    cmd = [
+        "ffmpeg", "-y", "-i", input_file_path,
+        "-vn", "-ar", "16000", "-ac", "1",
+        output_path,
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        return output_path
+    except subprocess.CalledProcessError as e:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        error_message = e.stderr.decode("utf-8", errors="ignore")
+        raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
+
+
+@st.cache_resource(show_spinner=False)
+def load_whisper_model(model_size: str):
+    """Whisper 모델은 최초 1회만 로드되도록 캐시합니다.
+    (그렇지 않으면 매 실행마다 수백 MB 모델을 다시 로드하게 됩니다.)"""
+    return whisper.load_model(model_size)
+
+
+def extract_transcript(file_bytes: bytes, file_name: str) -> list:
+    """업로드된 실제 미디어 파일을 ffmpeg로 오디오 변환 후 Whisper로 STT를
+    수행하여, 타임코드가 포함된 자막 세그먼트를 반환합니다."""
+    suffix = os.path.splitext(file_name)[1] or ".mp4"
+    raw_path = None
+    wav_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(file_bytes)
+            raw_path = tmp.name
+
+        wav_path = convert_to_wav(raw_path)
+
+        model = load_whisper_model(WHISPER_MODEL_SIZE)
+        result = model.transcribe(wav_path, language="ko", verbose=False)
+
+        segments = []
+        for seg in result.get("segments", []):
+            text = str(seg.get("text", "")).strip()
+            if text:
+                segments.append({
+                    "start": round(float(seg.get("start", 0.0)), 2),
+                    "end": round(float(seg.get("end", 0.0)), 2),
+                    "text": text,
+                })
+        return segments
+    finally:
+        for path in (raw_path, wav_path):
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+
+
+def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
+    """Gemini가 반환한 구간을 30~60초 범위 및 실제 영상 길이 안으로 보정합니다.
+    이 검증이 없으면 모델이 규칙을 무시한 구간을 그대로 EDL에 반영하게 됩니다."""
+    fixed_list = []
+    if not isinstance(raw_highlights, list):
+        return fixed_list
+
+    for item in raw_highlights:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start_time = max(0.0, float(item.get("start_time", 0.0)))
+            end_time = max(0.0, float(item.get("end_time", 0.0)))
+
+            if start_time > end_time:
+                start_time, end_time = end_time, start_time
+
+            if media_duration > 0:
+                start_time = min(start_time, media_duration)
+                end_time = min(end_time, media_duration)
+
+            duration = end_time - start_time
+            if duration < 30.0:
+                candidate_end = start_time + 30.0
+                if media_duration > 0 and candidate_end > media_duration:
+                    start_time = max(0.0, media_duration - 30.0)
+                    end_time = media_duration
+                else:
+                    end_time = candidate_end
+
+            duration = end_time - start_time
+            if duration > 60.0:
+                end_time = start_time + 60.0
+
+            duration = end_time - start_time
+            if start_time >= end_time or not (29.0 <= duration <= 61.0):
+                continue
+
+            item["start_time"] = round(start_time, 2)
+            item["end_time"] = round(end_time, 2)
+            fixed_list.append(item)
+        except (TypeError, ValueError):
+            continue
+
+    return fixed_list
+
+
+def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
+    """Gemini API를 사용하여 가장 임팩트 있는 숏폼 구간을 추출.
+    구조화 출력(response_schema)과 모델 폴백으로 실패율을 낮추고,
+    실패 시 가짜 결과를 숨기지 않고 예외를 그대로 올려 호출부(main)에서
+    사용자에게 실제 오류를 보여주도록 합니다."""
+    client = genai.Client(api_key=api_key)
+    preferred_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
+
+    formatted_transcript = "\n".join(
+        f"[{seg['start']:.2f}s ~ {seg['end']:.2f}s] {seg['text']}" for seg in transcript_segments
+    )
+
+    prompt = f"""
+너는 뉴스 방송 수석 에디터이자 YouTube Shorts/TikTok 전문 숏폼 에디터이다.
+아래 뉴스 자막 데이터의 타임코드를 분석하여 숏폼으로 제작하기 가장 임팩트 있고
+흥미로운 핵심 구간 3곳을 선정하라.
+
+[필수 규칙]
+1. 정확히 3개의 하이라이트를 반환한다.
+2. 각 구간의 길이는 반드시 30초 이상 60초 이하여야 한다.
+3. start_time은 선택한 첫 번째 자막의 시작 시간, end_time은 마지막 자막의 종료 시간이어야 한다.
+4. 문장이 중간에 잘리지 않는 완전한 뉴스 맥락을 선택하라.
+5. 영상 전체 길이는 약 {media_duration:.2f}초이다.
+
+[뉴스 자막 데이터]
+{formatted_transcript}
+"""
+
+    gen_config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema={
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "main_title": {"type": "STRING", "description": "주제 제목 (15자 이내)"},
+                    "sub_title": {"type": "STRING", "description": "카테고리/핵심 요약 (25자 이내)"},
+                    "start_time": {"type": "NUMBER", "description": "시작 시간(초)"},
+                    "end_time": {"type": "NUMBER", "description": "종료 시간(초)"},
+                    "reason": {"type": "STRING", "description": "선정 이유"},
+                },
+                "required": ["main_title", "sub_title", "start_time", "end_time", "reason"],
+            },
+        },
+        temperature=0.2,
+    )
+
+    last_exception = None
+    for model_name in preferred_models:
+        try:
+            response = client.models.generate_content(model=model_name, contents=prompt, config=gen_config)
+            raw_data = json.loads(response.text)
+            fixed = sanitize_and_fix_highlights(raw_data, media_duration)
+            if len(fixed) >= 1:
+                return fixed[:3]
+            last_exception = RuntimeError(f"모델 {model_name}이 유효한 구간을 반환하지 않았습니다.")
+        except Exception as error:
+            last_exception = error
+            continue
+
+    raise RuntimeError("하이라이트 추출에 실패했습니다. 잠시 후 다시 시도해주세요.") from last_exception
 
 # ==============================================================================
 # 5. 하이라이트 카드 렌더링
@@ -316,6 +514,16 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 def main():
     render_header()
 
+    api_key = get_gemini_api_key()
+    if not api_key:
+        accessible_alert(
+            "GEMINI_API_KEY가 설정되지 않았습니다. Streamlit Cloud에서는 "
+            "Settings → Secrets에, 로컬에서는 .env 파일에 설정해주세요.",
+            kind="error",
+            icon_name="alert-triangle",
+        )
+        return
+
     st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
@@ -334,12 +542,26 @@ def main():
     if not start_button:
         return
 
+    raw_input_path = None
     try:
         render_pipeline(pipe_placeholder, active_index=0)
+        file_bytes = uploaded_file.read()
+
+        # 하이라이트 구간이 실제 영상 길이를 벗어나지 않도록 미리 길이를 조회
+        suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(file_bytes)
+            raw_input_path = tmp.name
+        media_duration = get_media_duration(raw_input_path)
+
         render_pipeline(pipe_placeholder, active_index=1)
+        segments = extract_transcript(file_bytes, uploaded_file.name)
+
+        if not segments:
+            raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
+
         render_pipeline(pipe_placeholder, active_index=2)
-        
-        highlights = run_gemini_highlight_extraction("mock_key", [])
+        highlights = run_gemini_highlight_extraction(api_key, segments, media_duration)
         
         render_pipeline(pipe_placeholder, active_index=3)
         edl_content = generate_edl(highlights)
@@ -373,7 +595,13 @@ def main():
         )
 
     except Exception as e:
-        accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
+        accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
+    finally:
+        if raw_input_path and os.path.exists(raw_input_path):
+            try:
+                os.remove(raw_input_path)
+            except OSError:
+                pass
 
 if __name__ == "__main__":
     main()
