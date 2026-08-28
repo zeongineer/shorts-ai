@@ -119,21 +119,18 @@ st.markdown(
     }}
     [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
 
+    /* 파이프라인 분석 카드 스타일 수정 (높이 제한 해제) */
     .pipe-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
-        padding:20px 24px; height: 155px; box-shadow: var(--shadow-sm);
+        padding:20px 24px; box-shadow: var(--shadow-sm);
         display:flex; flex-direction:column; gap:12px;
         transition: all 0.2s ease;
+        justify-content: center;
+        min-height: 80px; 
     }}
     .pipe-card.active {{ border-color:var(--brand); box-shadow: 0 0 0 2px var(--brand-tint), var(--shadow-md); }}
-    .pipe-title {{ display:flex; align-items:center; gap:10px; font-size:0.95rem; font-weight:700; color:var(--text-primary); }}
-    .step-num {{
-        display:inline-flex; align-items:center; justify-content:center;
-        width:24px; height:24px; border-radius:6px; color:#fff;
-        font-size:12px; font-weight:700; flex-shrink:0;
-    }}
-    .pipe-desc {{ font-size:0.85rem; color:var(--text-secondary); line-height:1.6; flex:1; }}
-    .pipe-status {{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:600; margin-top: auto; }}
+    .pipe-title {{ display:flex; align-items:center; gap:10px; font-size:1rem; font-weight:700; color:var(--text-primary); }}
+    .pipe-status {{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:600; margin-top: 4px; }}
     .pipe-status.done {{ color:var(--green); }}
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
@@ -179,7 +176,7 @@ st.markdown(
         font-weight: 600; font-size: 0.95rem;
         padding: 0.6rem 1.5rem;
         border-radius: 8px;
-        text-decoration: none;
+        text-decoration: none !important; /* 밑줄 강제 제거 */
         display: inline-block;
         box-shadow: 0 2px 4px rgba(28,157,233,0.2);
         transition: all 0.2s ease;
@@ -190,6 +187,7 @@ st.markdown(
         border-color: var(--brand-dark);
         box-shadow: 0 4px 12px rgba(28,157,233,0.3);
         transform: translateY(-1px);
+        text-decoration: none !important; /* hover 상태에서도 밑줄 제거 */
     }}
     </style>
     """,
@@ -237,18 +235,17 @@ PIPELINE_STEPS = [
 def render_pipeline(placeholders: list, active_index: int, done: bool = False) -> None:
     for i, ph in enumerate(placeholders):
         step = PIPELINE_STEPS[i]
-        num = i + 1
         if done or i < active_index:
-            card_class, num_bg, status_html = "", "#0F172A", f'<div class="pipe-status done">{icon("check", 14, "currentColor", 2.5)} 완료</div>'
+            card_class, status_html = "", f'<div class="pipe-status done">{icon("check", 14, "currentColor", 2.5)} 완료</div>'
         elif i == active_index:
-            card_class, num_bg, status_html = "active", BRAND, f'<div class="pipe-status active">{icon("dot", 14, "currentColor", 2)} 진행 중</div>'
+            card_class, status_html = "active", f'<div class="pipe-status active">{icon("dot", 14, "currentColor", 2)} 진행 중</div>'
         else:
-            card_class, num_bg, status_html = "", "#CBD5E1", f'<div class="pipe-status pending">{icon("circle", 14, "currentColor", 2)} 대기 중</div>'
+            card_class, status_html = "", f'<div class="pipe-status pending">{icon("circle", 14, "currentColor", 2)} 대기 중</div>'
 
+        # 넘버링과 설명(desc)을 렌더링에서 제외하여 간결하게 구성
         ph.markdown(f"""
             <div class="pipe-card {card_class}">
-                <div class="pipe-title"><span class="step-num" style="background:{num_bg};">{num}</span>{step['title']}</div>
-                <div class="pipe-desc">{step['desc']}</div>
+                <div class="pipe-title">{step['title']}</div>
                 {status_html}
             </div>
             """, unsafe_allow_html=True)
