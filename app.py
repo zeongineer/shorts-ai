@@ -138,7 +138,6 @@ st.markdown(
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
-    /* 하이라이트 카드 스타일 (마우스 오버 효과 제거) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:24px; height:100%; box-shadow: var(--shadow-sm);
@@ -160,26 +159,32 @@ st.markdown(
     
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 다운로드 박스 래퍼 스타일 수정 (흰색 배경, 동일한 테두리, 내부 여백 및 간격 완벽 제어) */
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        background: var(--surface) !important;
-        border: 1px solid var(--border) !important;
+    /* 다운로드 박스 래퍼 완벽 제어 (명시도 강화하여 흰색 배경 및 테두리 강제) */
+    .stApp div[data-testid="stVerticalBlockBorderWrapper"] {{
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
         border-radius: 12px !important;
-        box-shadow: var(--shadow-sm) !important;
-        padding: 4px 16px !important; /* 좌우 여백 확보 */
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+        padding: 20px 24px !important;
     }}
 
-    /* Streamlit 컨테이너 내부의 기본 간격(gap) 강제 제거 */
-    [data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlock"] {{
+    /* 컨테이너 내부 갭(gap) 강제 초기화 */
+    .stApp div[data-testid="stVerticalBlockBorderWrapper"] > div {{
         gap: 0 !important;
     }}
 
-    /* st.markdown이 렌더링할 때 생성하는 p 태그 하단 여백 제거 */
-    [data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownContainer"] > p {{
+    /* p 태그 기본 마진 제거로 수직 정렬 어긋남 방지 */
+    .stApp div[data-testid="stVerticalBlockBorderWrapper"] p {{
         margin-bottom: 0 !important;
     }}
 
-    .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
+    .download-info {{ 
+        display: flex; 
+        align-items: center; 
+        gap: 16px; 
+        padding: 0 !important; 
+    }}
+    
     .download-icon-box {{
         width:48px; height:48px; border-radius:10px; background:var(--brand-tint); color:var(--brand);
         display:flex; align-items:center; justify-content:center; flex-shrink:0;
@@ -187,7 +192,15 @@ st.markdown(
     .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
     .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
 
-    /* 다운로드 버튼 색상 명확히 지정 (텍스트 흰색 강제) */
+    /* 버튼 영역 컬럼을 강제 수직 중앙 정렬 (구버전 Streamlit 레이아웃 호환) */
+    .stApp div[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stColumn"]:nth-child(2) > div {{
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        height: 100% !important;
+    }}
+
+    /* 다운로드 버튼 색상 명확히 지정 */
     div.stButton > button[kind="primary"], div.stDownloadButton > button {{
         background-color: var(--brand) !important;
         border-color: var(--brand) !important;
@@ -372,8 +385,8 @@ def main():
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
         with st.container(border=True):
-            # vertical_alignment 속성을 추가하여 버튼과 텍스트 영역의 수직 중앙을 일치시킵니다.
             info_col, dl_col = st.columns([3, 1], vertical_alignment="center")
+            
             with info_col:
                 st.markdown(f"""
                     <div class="download-info">
@@ -384,8 +397,8 @@ def main():
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
+                
             with dl_col:
-                # type="primary"를 추가하여 커스텀 CSS 테마와 일치하도록 적용합니다.
                 st.download_button(
                     label="EDL 파일 다운로드", 
                     data=edl_content, 
