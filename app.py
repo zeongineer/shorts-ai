@@ -4,13 +4,10 @@ import subprocess
 import tempfile
 import base64
 from typing import Any, Dict, List
-import json
 
 import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 
 # ==============================================================================
 # 1. 환경 및 페이지 설정
@@ -225,7 +222,7 @@ def render_header() -> None:
         '<header class="app-header">'
         '<div class="app-title-group">'
         '<h1 class="app-title">뉴스 숏폼 하이라이트 자동 추출기</h1>'
-        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 자막을 분석하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
+        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 Whisper AI로 자막을 추출하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
         '</div>'
         '</header>',
         unsafe_allow_html=True,
@@ -283,45 +280,100 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
         edl_lines.extend([line1, line2])
     return "\n".join(edl_lines) + "\n"
 
-def extract_transcript(file_bytes: bytes, file_name: str) -> list:
-    """실제 환경에 맞게 Whisper 등을 연동하거나 임시 세그먼트를 반환하는 STT 함수"""
-    return [
-        {"start": 0.0, "end": 15.0, "text": "뉴스 브리핑을 시작하겠습니다."},
-        {"start": 15.1, "end": 45.0, "text": "오늘의 주요 뉴스입니다. 첫 소식입니다."},
-        {"start": 45.1, "end": 90.0, "text": "경제 및 사회 전반의 이슈를 살펴봅니다."},
-        {"start": 90.1, "end": 150.0, "text": "다음은 날씨와 기상 전망입니다."},
+def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
+    return [ 
+        {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "카운트다운부터 엔진 점화, 이륙까지 긴장감이 고조되는 핵심 텐션 구간입니다. 시각적 임팩트가 크고 앵커의 격앙된 현장 멘트가 맞물려 숏폼 플랫폼 내 초기 시청 이탈률을 방어하기에 가장 적합합니다."},
+        {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "현장의 긴박한 피해 상황(CCTV)과 기상 캐스터의 요약 브리핑이 속도감 있게 교차 편집된 구간입니다. 재난/날씨 관련 숏폼 특성상 시청자들의 경각심을 자극하여 높은 바이럴(공유) 수치를 이끌어낼 수 있습니다."},
+        {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "노사 간의 첨예한 갈등 상황을 양측 인터뷰와 핵심 그래픽 자료로 40초 안에 압축하여 전달합니다. 시청자들의 적극적인 댓글 참여와 토론을 유도하기 좋은 전형적인 '정보 전달형' 숏폼 구성입니다."}
     ]
 
-def run_gemini_highlight_extraction(api_key: str, transcript_segments: list) -> list:
-    """Gemini API를 사용하여 가장 임팩트 있는 숏폼 구간을 추출"""
-    client = genai.Client(api_key=api_key)
-    
-    prompt = f"""
-    다음 뉴스 자막 스크립트와 타임스탬프 데이터를 분석하여, 숏폼(Reels/Shorts)으로 제작하기 가장 임팩트 있고 흥미로운 구간 3개를 골라주세요.
-    
-    자막 데이터:
-    {json.dumps(transcript_segments, ensure_ascii=False, indent=2)}
-    
-    반드시 아래 JSON 형식의 리스트로만 응답해주세요 (마크다운 백틱 없이 순수 JSON 형태):
-    [
-      {{
-        "main_title": "주제 제목",
-        "sub_title": "카테고리",
-        "start_time": 0.0,
-        "end_time": 15.0,
-        "reason": "선정 이유 설명"
-      }}
-    ]
-    """
-    
-    # 404 에러 방지를 위해 모델명을 최신 버전으로 변경
-    response = client.models.generate_content(
-        model='gemini-3.6-flash',
-        contents=prompt,
+# ==============================================================================
+# 5. 하이라이트 카드 렌더링
+# ==============================================================================
+def render_highlight_card(index: int, highlight: dict) -> None:
+    start_sec = float(highlight.get("start_time", 0.0))
+    end_sec = float(highlight.get("end_time", 0.0))
+    duration = round(end_sec - start_sec, 1)
+    title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
+    reason = html.escape(str(highlight.get("reason", "-")))
+
+    st.markdown(
+        f'<article class="h-card" style="height:100%;">'
+        f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
+        f'<h3>{title}</h3>'
+        f'<div class="h-row">'
+        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>'
+        f'<div class="tc-block" style="color:var(--brand); font-weight:500;">{icon("timer", 14, "currentColor")} {duration}초</div>'
+        f'</div>'
+        f'<div class="h-reason"><b>선정 이유</b>{reason}</div>'
+        f'</article>',
+        unsafe_allow_html=True,
     )
+
+# ==============================================================================
+# 6. 메인 애플리케이션
+# ==============================================================================
+def main():
+    render_header()
+
+    st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
     
+    uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
+    
+    if uploaded_file:
+        start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
+    else:
+        start_button = False
+        return
+    
+    st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+    
+    pipe_placeholder = st.empty()
+    render_pipeline(pipe_placeholder, active_index=-1)
+
+    if not start_button:
+        return
+
     try:
-        text_res = response.text.strip()
-        if text_res.startswith("```json"):
-            text_res = text_res[7:-3].strip()
-        elif text_res.startswith("
+        render_pipeline(pipe_placeholder, active_index=0)
+        render_pipeline(pipe_placeholder, active_index=1)
+        render_pipeline(pipe_placeholder, active_index=2)
+        
+        highlights = run_gemini_highlight_extraction("mock_key", [])
+        
+        render_pipeline(pipe_placeholder, active_index=3)
+        edl_content = generate_edl(highlights)
+        render_pipeline(pipe_placeholder, active_index=3, done=True)
+
+        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+
+        h_cols = st.columns(3)
+        for index, highlight in enumerate(highlights):
+            with h_cols[index % 3]:
+                render_highlight_card(index, highlight)
+
+        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+        edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
+
+        b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
+        href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
+
+        st.markdown(
+            f'<div class="h-card dl-wrapper">'
+            f'<div style="display: flex; align-items: center; gap: 16px;">'
+            f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
+            f'<div>'
+            f'<div class="file-name">{html.escape(edl_filename)}</div>'
+            f'<div class="file-meta">CMX 3600 Format 타임코드 데이터</div>'
+            f'</div>'
+            f'</div>'
+            f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">EDL 파일 다운로드</a>'
+            f'</div>', 
+            unsafe_allow_html=True
+        )
+
+    except Exception as e:
+        accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
+
+if __name__ == "__main__":
+    main()
