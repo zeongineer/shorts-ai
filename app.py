@@ -98,7 +98,7 @@ st.markdown(
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
     .block-container {{
-        max-width: 1350px !important;
+        max-width: 1300px !important;
         margin: 0 auto;
         padding-top: 3rem !important;
     }}
@@ -155,49 +155,43 @@ st.markdown(
     .step-node.active .step-label {{ color: var(--brand); }}
 
     .h-card {{
-        background:var(--surface); border:1px solid var(--border); border-radius:16px;
-        padding:20px 24px; box-shadow: var(--shadow-md);
-        display:flex; flex-direction:column; gap:10px;
+        background:var(--surface); border:1px solid var(--border); border-radius:14px;
+        padding:16px 18px; box-shadow: var(--shadow-md);
+        display:flex; flex-direction:column; gap:8px;
         margin-bottom: 12px;
     }}
+    .panel-card {{
+        background:var(--surface); border:1px solid var(--border); border-radius:16px;
+        padding:24px; box-shadow: var(--shadow-md);
+        position: sticky; top: 20px;
+    }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; }}
-    .h-card h3 {{ font-size:1.05rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
+    .h-card h3 {{ font-size:1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
     
     .step-num {{ 
         display: inline-flex; align-items: center; justify-content: center;
-        width: 24px; height: 24px; border-radius: 50%;
-        background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.8rem;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.75rem;
     }}
 
     .h-row {{
         display:flex; align-items:center; gap:12px; font-family:'IBM Plex Mono', monospace;
-        font-size:0.85rem; color:var(--text-secondary);
+        font-size:0.8rem; color:var(--text-secondary);
     }}
     .tc-block {{ display: flex; align-items: center; gap: 6px; }}
     
     .h-reason {{
-        background:var(--brand-tint); border-radius:8px; border: none;
-        padding:12px 16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;
+        background:var(--brand-tint); border-radius:6px; border: none;
+        padding:10px 14px; font-size:0.82rem; color:var(--text-secondary); line-height:1.4;
     }}
     .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:2px; font-weight: 600; }}
 
-    .dl-wrapper {{ 
-        flex-direction: column; background-color: var(--surface); border-color: var(--border); padding: 24px;
-        box-shadow: var(--shadow-md); border-radius: 16px; gap: 16px;
-    }}
-    .download-icon-box {{
-        width:48px; height:48px; border-radius:10px; background:var(--brand-tint); color:var(--brand);
-        display:flex; align-items:center; justify-content:center; flex-shrink:0;
-    }}
-    .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
-    .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
-    
     .dl-btn {{
         background-color: var(--brand); color: #FFFFFF !important;
-        font-weight: 600; font-size: 0.95rem; padding: 0.75rem 1.5rem;
+        font-weight: 600; font-size: 0.95rem; padding: 0.7rem 1.5rem;
         border-radius: 12px; text-decoration: none !important;
         display: block; text-align: center; transition: all 0.2s ease;
-        border: 1px solid var(--brand); margin-top: 8px;
+        border: 1px solid var(--brand); margin-top: 12px;
     }}
     .dl-btn:hover {{ background-color: var(--brand-dark); border-color: var(--brand-dark); transform: translateY(-1px); }}
     
@@ -486,7 +480,7 @@ def sanitize_and_fix_topics(raw_topics: list, media_duration: float = 0.0) -> li
 
 def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
     client = genai.Client(api_key=api_key)
-    preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
+    preferred_models = ["gemini-2.5-flash", "gemini-2.5-pro"]
 
     formatted_transcript = "\n".join(
         f"[{seg['start']:.2f}s ~ {seg['end']:.2f}s] {seg['text']}" for seg in transcript_segments
@@ -605,10 +599,8 @@ def main():
             st.session_state["topics"] = topics
             st.session_state["video_fps"] = video_fps
             st.session_state["source_filename"] = uploaded_file.name
-            
-            # 기본값으로 모든 토픽 선택 상태 초기화
-            for idx in range(len(topics)):
-                st.session_state[f"topic_chk_{idx}"] = True
+            # 전체 선택 상태 초기화
+            st.session_state["select_all_toggle"] = True
 
         except Exception as e:
             accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
@@ -620,33 +612,40 @@ def main():
                 except OSError:
                     pass
 
-    # 분석 결과가 있는 경우 가로 2분할 레이아웃 적용 (좌: 토픽 리스트, 우: EDL 파일 생성 패널)
+    # 분석 완료 후: 7:3 가로 2분할 레이아웃 적용
     if "topics" in st.session_state and st.session_state["topics"]:
         render_pipeline(pipe_placeholder, active_index=3, done=True)
         topics = st.session_state["topics"]
         video_fps = st.session_state.get("video_fps", 29.97)
         source_filename = st.session_state.get("source_filename", "source.mp4")
 
-        # 7:3 또는 8:4 비율 레이아웃 (약 7.5 : 4.5 비율)
-        left_col, right_col = st.columns([7.5, 4.5], gap="large")
+        st.markdown('<hr style="margin: 16px 0 24px; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+
+        # 7:3 분할 열 생성
+        left_col, right_col = st.columns([7, 3], gap="large")
 
         with left_col:
-            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px 0; color:var(--text-primary);">토픽 리스트</p>', unsafe_allow_html=True)
-            
-            # 전체 선택 및 전체 해제 버튼 기능
-            sel_col1, sel_col2, _ = st.columns([1, 1, 3])
-            with sel_col1:
+            st.markdown(
+                '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">'
+                '<h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary);">토픽 리스트</h3>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+
+            # 전체 선택 / 전체 해제 컨트롤 버튼
+            select_all_col, deselect_all_col, _ = st.columns([0.22, 0.22, 0.56])
+            with select_all_col:
                 if st.button("전체 선택", use_container_width=True):
-                    for idx in range(len(topics)):
-                        st.session_state[f"topic_chk_{idx}"] = True
+                    for i in range(len(topics)):
+                        st.session_state[f"topic_chk_{i}"] = True
                     st.rerun()
-            with sel_col2:
+            with deselect_all_col:
                 if st.button("전체 해제", use_container_width=True):
-                    for idx in range(len(topics)):
-                        st.session_state[f"topic_chk_{idx}"] = False
+                    for i in range(len(topics)):
+                        st.session_state[f"topic_chk_{i}"] = False
                     st.rerun()
 
-            st.markdown('<div style="margin-bottom: 8px;"></div>', unsafe_allow_html=True)
+            st.markdown('<div style="margin-top: 8px;"></div>', unsafe_allow_html=True)
 
             selected_indices = []
             for index, topic in enumerate(topics):
@@ -655,78 +654,82 @@ def main():
                 duration = round(end_sec - start_sec, 1)
                 title = html.escape(str(topic.get("main_title", f"주제 {index + 1}")))
                 reason = html.escape(str(topic.get("reason", "-")))
-                tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)} ({duration}초)"
+                tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)}"
 
-                chk_col, content_col = st.columns([0.08, 0.92])
-                with chk_col:
-                    is_selected = st.checkbox("선택", key=f"topic_chk_{index}", label_visibility="collapsed")
-                with content_col:
-                    st.markdown(
-                        f'<article class="h-card" style="margin-bottom:12px;">'
-                        f'<div class="h-top">'
-                        f'<div style="display:flex; align-items:center; gap:8px;">'
-                        f'<span class="step-num">{index + 1}</span>'
-                        f'<h3>{title}</h3>'
-                        f'</div>'
-                        f'</div>'
-                        f'<div class="h-row">'
-                        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {tc_str}</div>'
-                        f'</div>'
-                        f'<div class="h-reason"><b>자막 미리보기 및 요약</b>{reason}</div>'
-                        f'</article>',
-                        unsafe_allow_html=True,
-                    )
+                # 카드 안에 체크박스와 정보들을 깔끔하게 배치
+                chk_key = f"topic_chk_{index}"
+                if chk_key not in st.session_state:
+                    st.session_state[chk_key] = True
+
+                # 카드 컴포넌트 마크업
+                st.markdown(
+                    f'<article class="h-card">'
+                    f'<div class="h-top">'
+                    f'<div style="display:flex; align-items:center; gap:8px;">'
+                    f'<span class="step-num">#{index + 1}</span>'
+                    f'<h3>{title}</h3>'
+                    f'</div>'
+                    f'</div>'
+                    f'<div class="h-row">'
+                    f'<div class="tc-block">{icon("clock", 13, "currentColor")} 구간: <b>{tc_str}</b> &nbsp;|&nbsp; 길이: <b>{duration}초</b></div>'
+                    f'</div>'
+                    f'<div class="h-reason"><b>자막 미리보기 / 내용</b>{reason}</div>'
+                    f'</article>',
+                    unsafe_allow_html=True,
+                )
                 
+                # 체크박스 배치 (카드 바로 밑 또는 연계)
+                is_selected = st.checkbox(f"항목 #{index + 1} 선택", value=st.session_state[chk_key], key=chk_key)
                 if is_selected:
                     selected_indices.append(index)
+                
+                st.markdown('<div style="margin-bottom: 6px;"></div>', unsafe_allow_html=True)
 
         with right_col:
-            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px 0; color:var(--text-primary);">EDL 파일 생성</p>', unsafe_allow_html=True)
+            st.markdown('<div class="panel-card">', unsafe_allow_html=True)
+            st.markdown('<h3 style="margin-top: 0; font-size: 1.2rem; color: var(--text-primary); margin-bottom: 16px;">EDL 파일 생성</h3>', unsafe_allow_html=True)
+
+            total_runtime = sum(topics[i]["end_time"] - topics[i]["start_time"] for i in selected_indices) if selected_indices else 0.0
             
-            # 우측 패널 카드 구성
-            filtered_topics = [topics[i] for i in selected_indices]
-            total_runtime_sec = sum(float(t.get("end_time", 0.0)) - float(t.get("start_time", 0.0)) for t in filtered_topics)
-            total_runtime_tc = seconds_to_timecode(total_runtime_sec, video_fps)
-
-            default_edl_name = f"{os.path.splitext(source_filename)[0]}_selected_split.edl"
-
+            # 정보성 텍스트 키-값 형태 정렬
             st.markdown(
-                f'<div class="h-card dl-wrapper" style="margin-bottom: 16px;">'
-                f'<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">'
-                f'<div class="download-icon-box">{icon("doc", 22, BRAND)}</div>'
-                f'<div>'
-                f'<div class="file-name">EDL 패키지 설정</div>'
-                f'<div class="file-meta">CMX 3600 포맷 타임코드 출력</div>'
-                f'</div>'
-                f'</div>'
-                f'<div style="border-top: 1px solid var(--border); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; color: var(--text-secondary);">'
+                f'<div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.92rem; margin-bottom: 20px; color: var(--text-secondary);">'
                 f'<div style="display: flex; justify-content: space-between;"><span>내보낼 항목:</span><b style="color: var(--text-primary);">{len(selected_indices)}개 클립</b></div>'
-                f'<div style="display: flex; justify-content: space-between;"><span>총 러닝타임:</span><b style="color: var(--text-primary);">{total_runtime_tc}</b></div>'
-                f'</div>'
+                f'<div style="display: flex; justify-content: space-between;"><span>총 러닝타임:</span><b style="color: var(--text-primary);">{seconds_to_timecode(total_runtime, video_fps)} ({round(total_runtime, 1)}초)</b></div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
 
-            # 파일명 입력 텍스트박스 (대입 표현식 오류 방지를 위해 안전하게 분리)
-            custom_filename = st.text_input("파일 명 입력", value=default_edl_name)
+            # 파일명 입력 텍스트 입력창
+            default_out_name = f"{os.path.splitext(source_filename)[0]}_selected_split.edl"
+            custom_filename = st.text_input("파일 명 입력", value=default_out_name)
             
-            safe_filename = custom_filename.strip() if custom_filename else default_edl_name
+            # 안전한 파일명 보정
+            safe_filename = custom_filename.strip() if custom_filename.strip() else default_out_name
             if not safe_filename.endswith(".edl"):
                 safe_filename += ".edl"
 
-            st.info("선택된 주제 항목들의 순서대로 타임코드가 재배치되어 NLE 편집기(EDIUS 등)와 호환되는 EDL 파일이 생성됩니다.")
+            st.markdown('<div style="margin-top: 12px;"></div>', unsafe_allow_html=True)
+
+            # 안내 박스 (st.info)
+            st.info("선택된 토픽 구간들을 순서대로 결합하여 CMX 3600 표준 EDL 파일로 변환합니다.")
 
             if not selected_indices:
-                accessible_alert("선택된 구간이 없습니다. 최소 1개 이상의 주제를 선택해주세요.", kind="error", icon_name="alert-triangle")
+                st.warning("내보낼 항목이 없습니다. 좌측 리스트에서 최소 1개 이상을 선택해주세요.")
             else:
+                filtered_topics = [topics[i] for i in selected_indices]
                 edl_content = generate_edl(filtered_topics, source_filename=source_filename, fps=video_fps)
+
                 b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
                 href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
 
+                # 커스텀 버튼 디자인 적용 다운로드 링크
                 st.markdown(
-                    f'<a href="{href}" download="{html.escape(safe_filename)}" class="dl-btn">EDL 파일 생성 및 다운로드</a>',
+                    f'<a href="{href}" download="{html.escape(safe_filename)}" class="dl-btn">EDL 파일 생성</a>', 
                     unsafe_allow_html=True
                 )
+
+            st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
