@@ -129,21 +129,6 @@ st.markdown(
     }}
     [data-testid="stFileUploader"]:hover {{ border-color: var(--brand) !important; background-color: var(--brand-tint); }}
 
-    /* 업로드된 파일 아이콘(검은색 박스)을 브랜드 톤으로 변경 */
-    [data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] {{
-        background-color: var(--surface) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
-    }}
-    [data-testid="stFileUploader"] svg {{
-        fill: var(--brand) !important;
-        color: var(--brand) !important;
-    }}
-    [data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"] span {{
-        color: var(--text-primary) !important;
-        font-weight: 600 !important;
-    }}
-
     .stepper-container {{
         display: flex; justify-content: space-between; position: relative; 
         margin: 24px 0 36px; padding: 0 20px;
@@ -318,6 +303,8 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
     return "\n".join(edl_lines) + "\n"
 
 def get_media_duration(file_path: str) -> float:
+    """ffprobe로 미디어 전체 길이(초)를 조회합니다. 하이라이트 구간이
+    영상 실제 길이를 벗어나지 않도록 검증하는 데 사용됩니다."""
     cmd = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", file_path,
@@ -330,6 +317,9 @@ def get_media_duration(file_path: str) -> float:
 
 
 def prepare_audio_for_groq(input_file_path: str) -> str:
+    """Groq API 업로드용으로 16kHz 모노 저비트레이트 MP3로 변환합니다.
+    (파일 용량을 최소화해 업로드 시간과 API 처리 시간을 줄입니다.)
+    packages.txt의 ffmpeg 시스템 패키지가 설치되어 있어야 동작합니다."""
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
     output_temp_file.close()
@@ -350,6 +340,9 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
 
 
 def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> list:
+    """업로드된 실제 미디어 파일을 ffmpeg로 오디오 변환 후 Groq의 Whisper API로
+    STT를 수행하여, 타임코드가 포함된 자막 세그먼트를 반환합니다.
+    (로컬 torch/whisper 대신 API를 쓰므로 배포 용량과 메모리 부담이 거의 없습니다.)"""
     suffix = os.path.splitext(file_name)[1] or ".mp4"
     raw_path = None
     audio_path = None
@@ -391,6 +384,8 @@ def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> 
 
 
 def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
+    """Gemini가 반환한 구간을 30~60초 범위 및 실제 영상 길이 안으로 보정합니다.
+    이 검증이 없으면 모델이 규칙을 무시한 구간을 그대로 EDL에 반영하게 됩니다."""
     fixed_list = []
     if not isinstance(raw_highlights, list):
         return fixed_list
@@ -436,7 +431,12 @@ def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.
 
 
 def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
+    """Gemini API를 사용하여 가장 임팩트 있는 숏폼 구간을 추출.
+    구조화 출력(response_schema)과 모델 폴백으로 실패율을 낮추고,
+    실패 시 가짜 결과를 숨기지 않고 예외를 그대로 올려 호출부(main)에서
+    사용자에게 실제 오류를 보여주도록 합니다."""
     client = genai.Client(api_key=api_key)
+    # gemini-2.5-flash는 신규 사용자에게 더 이상 제공되지 않아(404) 폴백 목록에서 제외.
     preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
 
     formatted_transcript = "\n".join(
@@ -537,7 +537,7 @@ def main():
 
     groq_client = Groq(api_key=groq_api_key)
 
-    # '미디어 소스 업로드' 텍스트 마크다운 제거 완료
+    st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
     
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
@@ -560,6 +560,7 @@ def main():
         render_pipeline(pipe_placeholder, active_index=0)
         file_bytes = uploaded_file.read()
 
+        # 하이라이트 구간이 실제 영상 길이를 벗어나지 않도록 미리 길이를 조회
         suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(file_bytes)
