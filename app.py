@@ -5,9 +5,6 @@ import tempfile
 import base64
 from typing import Any, Dict, List
 
-from google import genai
-from google.genai import types
-from groq import Groq
 import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
@@ -19,7 +16,7 @@ load_dotenv()
 st.set_page_config(
     page_title="뉴스 숏폼 하이라이트 추출기",
     page_icon="🎬",
-    layout="wide", 
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
@@ -69,20 +66,23 @@ st.markdown(
         --border:#E2E8F0;
         --text-primary:#0F172A;
         --text-secondary:#64748B;
-        --shadow-custom: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+        --green:#10B981;
+        --gray-light:#F1F5F9;
+        /* 그림자 범위 확대 및 부드럽게 처리 */
+        --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
     }}
 
     .stApp {{ background-color: var(--bg-base); }}
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
-    /* Streamlit 컴포넌트 간격 압축 */
-    div[data-testid="stVerticalBlock"] {{ gap: 0.75rem !important; }}
-
     .block-container {{
-        max-width: 1000px !important;
+        max-width: 1200px !important;
         margin: 0 auto;
         padding-top: 3rem !important;
     }}
+
+    /* [개선 4] 컴포넌트 간 간격 압축 */
+    div[data-testid="stVerticalBlock"] {{ gap: 0.75rem !important; }}
 
     .app-header {{ display:flex; align-items:center; gap:16px; margin-bottom: 8px; }}
     .app-title-group {{ display:flex; flex-direction:column; gap:4px; }}
@@ -105,52 +105,46 @@ st.markdown(
         letter-spacing:-0.3px; display: flex; align-items: center; gap: 8px;
     }}
 
-    /* 업로더 영역 통합 (Dropzone 스타일링) */
+    /* [개선 1] 파일 업로더 커스텀 (점선 완화 및 배경 통일) */
     [data-testid="stFileUploader"] {{
         background-color: var(--bg-base);
-        border: 2px dashed var(--border);
-        border-radius: 16px;
-        padding: 24px;
+        border: 2px dashed #CBD5E1 !important;
+        border-radius: 16px !important;
+        padding: 24px !important;
         transition: all 0.2s ease;
     }}
-    [data-testid="stFileUploader"]:hover {{
-        border-color: var(--brand);
-        background-color: var(--brand-tint);
-    }}
+    [data-testid="stFileUploader"]:hover {{ border-color: var(--brand) !important; background-color: var(--brand-tint); }}
 
-    /* Stepper 파이프라인 디자인 */
+    /* [개선 3] Stepper 형태의 프로세스 현황 디자인 */
     .stepper-container {{
-        position: relative; display: flex; justify-content: space-between;
-        margin: 32px 24px 48px 24px; z-index: 1;
+        display: flex; justify-content: space-between; position: relative; 
+        margin: 24px 0 36px; padding: 0 20px;
     }}
-    .stepper-line {{
-        position: absolute; top: 16px; left: 0; right: 0; height: 2px;
-        background: var(--border); z-index: -1;
-    }}
-    .stepper-progress {{
-        position: absolute; top: 16px; left: 0; height: 2px;
-        background: var(--brand); z-index: -1; transition: width 0.4s ease;
-    }}
-    .step-item {{
-        display: flex; flex-direction: column; align-items: center; gap: 8px;
-        background: var(--bg-base); padding: 0 12px;
+    .stepper-container::before {{
+        content: ""; position: absolute; top: 15px; left: 50px; right: 50px; height: 2px;
+        background: var(--border); z-index: 1;
     }}
     .step-node {{
-        width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        background: var(--surface); border: 2px solid var(--border);
-        font-weight: bold; color: var(--text-secondary); font-size: 0.9rem; transition: all 0.2s ease;
+        position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 10px;
+        width: 120px;
     }}
-    .step-item.done .step-node {{ background: var(--brand); border-color: var(--brand); color: #FFF; }}
-    .step-item.active .step-node {{ border-color: var(--brand); color: var(--brand); box-shadow: 0 0 0 4px var(--brand-tint); }}
-    .step-label {{ font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }}
-    .step-item.done .step-label {{ color: var(--text-primary); }}
-    .step-item.active .step-label {{ color: var(--brand); }}
+    .step-circle {{
+        width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 2px solid var(--border);
+        display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-secondary);
+        font-size: 0.9rem; transition: all 0.3s;
+    }}
+    .step-label {{ font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); text-align: center; }}
+    
+    .step-node.done .step-circle {{ background: var(--brand); border-color: var(--brand); color: #FFF; }}
+    .step-node.done .step-label {{ color: var(--text-primary); }}
+    .step-node.active .step-circle {{ border-color: var(--brand); color: var(--brand); box-shadow: 0 0 0 4px var(--brand-tint); }}
+    .step-node.active .step-label {{ color: var(--brand); }}
 
-    /* 하이라이트 카드 (여백 정돈, 반경 확대, 그림자 변경) */
+    /* [개선 2 & 4] 하이라이트 카드 (모서리/그림자 세밀화 및 위계 정돈) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:16px;
-        padding:24px; box-shadow: var(--shadow-custom);
-        display:flex; flex-direction:column; gap:12px; height: 100%;
+        padding:24px; box-shadow: var(--shadow-md);
+        display:flex; flex-direction:column; gap:12px;
     }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
     .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
@@ -161,33 +155,30 @@ st.markdown(
         background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.85rem;
     }}
 
-    /* 타임코드 영역 - 가로 정렬 및 투명화 */
-    .h-row-group {{ display: flex; gap: 16px; align-items: center; margin-bottom: 4px; }}
     .h-row {{
-        display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono', monospace;
-        font-size:0.85rem; color:var(--text-secondary);
+        display:flex; align-items:center; gap:12px; font-family:'IBM Plex Mono', monospace;
+        font-size:0.85rem; color:var(--text-secondary); margin-bottom: 4px;
     }}
+    .tc-block {{ display: flex; align-items: center; gap: 6px; }}
     
-    /* 선정 이유 영역 - 테두리 제거 및 틴트 적용 */
     .h-reason {{
-        margin-top: auto; background:var(--brand-tint); border-radius:8px;
-        padding:16px; font-size:0.85rem; color:var(--brand-dark); line-height:1.6;
-        border: none;
+        margin-top: 8px; background:var(--brand-tint); border-radius:8px; border: none;
+        padding:16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
     }}
-    .h-reason b {{ color:var(--brand); display:block; margin-bottom:4px; font-weight: 700; }}
+    .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:4px; font-weight: 600; }}
 
-    /* 다운로드 섹션 강조 - 배경 톤 다운 */
+    /* [개선 4] 다운로드 섹션 배경 톤다운 처리 */
     .dl-wrapper {{ 
         flex-direction: row; align-items: center; justify-content: space-between; 
-        background: var(--brand-tint); border-color: #BFDBFE;
+        background-color: var(--brand-tint); border-color: #DBEAFE;
     }}
     .download-icon-box {{
-        width:48px; height:48px; border-radius:10px; background: #FFFFFF; color:var(--brand);
+        width:48px; height:48px; border-radius:10px; background:var(--surface); color:var(--brand);
         display:flex; align-items:center; justify-content:center; flex-shrink:0;
-        box-shadow: var(--shadow-custom);
+        box-shadow: var(--shadow-sm);
     }}
-    .file-name {{ font-weight:700; font-size:1rem; color:var(--brand-dark); margin-bottom:2px; }}
-    .file-meta {{ color:var(--brand); font-size:0.85rem; opacity: 0.8; }}
+    .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
+    .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
     
     .dl-btn {{
         background-color: var(--brand); color: #FFFFFF !important;
@@ -196,17 +187,25 @@ st.markdown(
         display: inline-block; transition: all 0.2s ease;
         border: 1px solid var(--brand);
     }}
-    .dl-btn:hover {{ background-color: var(--brand-dark); transform: translateY(-1px); }}
+    .dl-btn:hover {{ background-color: var(--brand-dark); border-color: var(--brand-dark); transform: translateY(-1px); }}
     
     button[kind="primary"] {{
-        background-color: var(--brand) !important; color: #FFFFFF !important;
-        font-weight: 600 !important; font-size: 0.95rem !important;
-        padding: 0.6rem 1.5rem !important; border-radius: 8px !important;
-        border: 1px solid var(--brand) !important; transition: all 0.2s ease !important;
-        min-height: 48px;
+        background-color: var(--brand) !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        padding: 0.75rem 1.5rem !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--brand) !important;
+        transition: all 0.2s ease !important;
+        min-height: 52px;
+        margin-top: 8px;
     }}
     button[kind="primary"]:hover {{
-        background-color: var(--brand-dark) !important; transform: translateY(-1px) !important;
+        background-color: var(--brand-dark) !important;
+        border-color: var(--brand-dark) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 6px -1px rgba(30, 58, 138, 0.2) !important;
     }}
     </style>
     """,
@@ -239,52 +238,37 @@ def render_header() -> None:
         '</header>',
         unsafe_allow_html=True,
     )
-    accessible_alert("처리 완료 시 편집기(EDIUS, Premiere Pro 등)에 즉시 임포트 가능한 타임코드 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
+    accessible_alert("처리 완료 시 편집기(EDIUS 등)에 즉시 임포트 가능한 타임코드 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
 
 # ==============================================================================
-# 4. 파이프라인 (Stepper) 및 데이터 포맷팅
+# 4. 파이프라인 및 방송 데이터 포맷팅
 # ==============================================================================
 PIPELINE_STEPS = [
-    {"title": "미디어 업로드"},
+    {"title": "미디어 전처리"},
     {"title": "음성 인식 (STT)"},
     {"title": "AI 숏폼 분석"},
     {"title": "EDL 패키징"},
 ]
 
 def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
-    total_steps = len(PIPELINE_STEPS)
-    
-    if done:
-        progress_pct = 100
-    elif active_index < 0:
-        progress_pct = 0
-    else:
-        progress_pct = (active_index / (total_steps - 1)) * 100
-
-    html_str = f"""
-    <div class="stepper-container">
-        <div class="stepper-line"></div>
-        <div class="stepper-progress" style="width: {progress_pct}%;"></div>
-    """
-    
+    html_str = '<div class="stepper-container">'
     for i, step in enumerate(PIPELINE_STEPS):
         if done or i < active_index:
-            state_class = "done"
-            node_content = icon("check", 16, "#FFFFFF", 3)
+            state = "done"
+            icon_html = icon("check", 16, "currentColor", 3)
         elif i == active_index:
-            state_class = "active"
-            node_content = str(i + 1)
+            state = "active"
+            icon_html = f"{i+1}"
         else:
-            state_class = "pending"
-            node_content = str(i + 1)
+            state = "pending"
+            icon_html = f"{i+1}"
 
         html_str += f"""
-            <div class="step-item {state_class}">
-                <div class="step-node">{node_content}</div>
+            <div class="step-node {state}">
+                <div class="step-circle">{icon_html}</div>
                 <div class="step-label">{step['title']}</div>
             </div>
         """
-        
     html_str += '</div>'
     placeholder.markdown(html_str, unsafe_allow_html=True)
 
@@ -297,7 +281,7 @@ def seconds_to_timecode(seconds: float, fps: int = 30) -> str:
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
 def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
-    edl_lines = ["TITLE: MOCK_EDL", "FCM: NON-DROP FRAME"]
+    edl_lines = ["TITLE: AI_SHORTFORM_EDL", "FCM: NON-DROP FRAME"]
     for i, hl in enumerate(highlights):
         start_tc = seconds_to_timecode(hl.get("start_time", 0.0))
         end_tc = seconds_to_timecode(hl.get("end_time", 0.0))
@@ -309,9 +293,9 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
 
 def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
     return [ 
-        {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "발사 성공의 역사적 순간을 시청자의 눈높이에 맞춰 직관적으로 포착한 핵심 구간입니다."},
-        {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "높은 대중적 관심도를 끌어낼 수 있는 긴급 기상 특보가 요약된 구간입니다."},
-        {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "노사 갈등의 원인과 배경을 인과관계에 따라 가장 명확하게 설명하고 있습니다."}
+        {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "발사 성공의 역사적 순간을 잘 포착했습니다."},
+        {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "높은 대중적 관심도를 끌어낼 수 있습니다."},
+        {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "원인과 배경을 명확하게 설명하고 있습니다."}
     ]
 
 # ==============================================================================
@@ -326,14 +310,14 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 
     st.markdown(
         f"""
-        <article class="h-card">
+        <article class="h-card" style="height:100%;">
             <div class="h-top">
                 <span class="step-num">{index + 1}</span>
             </div>
             <h3>{title}</h3>
-            <div class="h-row-group">
-                <div class="h-row">{icon('clock', 14, 'currentColor')} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>
-                <div class="h-row">{icon('timer', 14, 'currentColor')} {duration}초</div>
+            <div class="h-row">
+                <div class="tc-block">{icon('clock', 14, 'currentColor')} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>
+                <div class="tc-block" style="color:var(--brand); font-weight:500;">{icon('timer', 14, 'currentColor')} {duration}초</div>
             </div>
             <div class="h-reason"><b>선정 이유</b>{reason}</div>
         </article>
@@ -349,16 +333,14 @@ def main():
 
     st.markdown('<div class="section-title">미디어 소스 업로드</div>', unsafe_allow_html=True)
     
-    # 1. 업로드 영역 파편화 통합: Dropzone 디자인
+    # [개선 1] 컬럼 분리 없이 100% 너비의 Dropzone 형태로 통합
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
-    start_button = False
+    # 파일이 업로드된 상태에서만 시작 버튼 렌더링 (자연스러운 상태 분리)
     if uploaded_file:
-        # 파일이 업로드되었을 때 자연스럽게 버튼이 나타나도록 상태 분리
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
         start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
-
-    if not uploaded_file:
+    else:
+        start_button = False
         return
     
     st.markdown('<div class="section-title">프로세스 현황</div>', unsafe_allow_html=True)
