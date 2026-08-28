@@ -1,5 +1,6 @@
 import html
 import os
+import re
 import subprocess
 import tempfile
 import base64
@@ -283,24 +284,98 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
     html_str += '</div>'
     placeholder.markdown(html_str, unsafe_allow_html=True)
 
-def seconds_to_timecode(seconds: float, fps: int = 30) -> str:
-    total_frames = int(round(seconds * fps))
-    hh = total_frames // (3600 * fps)
-    mm = (total_frames % (3600 * fps)) // (60 * fps)
-    ss = (total_frames % (60 * fps)) // fps
-    ff = total_frames % fps
+def _is_ntsc_rate(fps: float) -> bool:
+    """23.976 / 29.97 / 59.94 등 NTSC 계열(1000/1001) 프레임레이트인지 판별.
+    한국 방송 소스는 대부분 이 계열입니다."""
+    return any(abs(fps - r) < 0.05 for r in (23.976, 29.97, 59.94))
+
+
+def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
+    """SMPTE 드롭프레임 타임코드 (29.97fps 등 NTSC 계열용).
+    실제 재생시간과 어긋나지 않도록 매분 첫 2프레임(60fps 계열은 4프레임)을
+    10의 배수 분을 제외하고 건너뛰는 표준 알고리즘입니다."""
+    seconds = max(0.0, float(seconds))
+    drop_frames = 2 if nominal_fps == 30 else 4  # 30fps 계열: 2프레임, 60fps 계열: 4프레임
+    frames_per_min = nominal_fps * 60
+    frames_per_10min = frames_per_min * 10
+
+    total_frames = int(round(seconds * (nominal_fps * 1000 / 1001)))
+    d, m = divmod(total_frames, frames_per_10min)
+    if m >= drop_frames:
+        total_frames += drop_frames * 9 * d + drop_frames * ((m - drop_frames) // (frames_per_min - drop_frames))
+    else:
+        total_frames += drop_frames * 9 * d
+
+    ff = total_frames % nominal_fps
+    total_seconds = total_frames // nominal_fps
+    ss = total_seconds % 60
+    total_minutes = total_seconds // 60
+    mm = total_minutes % 60
+    hh = total_minutes // 60
+    return f"{hh:02d}:{mm:02d}:{ss:02d};{ff:02d}"
+
+
+def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
+    """실제 소스 fps에 맞춰 CMX3600 타임코드 문자열을 생성합니다.
+    NTSC 계열(29.97/23.976/59.94)은 드롭프레임(';' 구분자),
+    그 외 정수 fps(24/25/30 등)는 논드롭(':' 구분자)으로 계산합니다."""
+    seconds = max(0.0, float(seconds))
+    if _is_ntsc_rate(fps):
+        nominal = 60 if abs(fps - 59.94) < 0.05 else 30
+        return _seconds_to_drop_frame_tc(seconds, nominal)
+
+    nominal = int(round(fps)) or 30
+    total_frames = int(round(seconds * nominal))
+    hh = total_frames // (3600 * nominal)
+    mm = (total_frames % (3600 * nominal)) // (60 * nominal)
+    ss = (total_frames % (60 * nominal)) // nominal
+    ff = total_frames % nominal
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
-def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
-    edl_lines = ["TITLE: AI_SHORTFORM_EDL", "FCM: NON-DROP FRAME"]
-    for i, hl in enumerate(highlights):
-        start_tc = seconds_to_timecode(hl.get("start_time", 0.0))
-        end_tc = seconds_to_timecode(hl.get("end_time", 0.0))
-        event_num = f"{(i+1):03d}"
-        line1 = f"{event_num}  {reel_name:<8} V     C        {start_tc} {end_tc} {start_tc} {end_tc}"
-        line2 = f"* FROM CLIP NAME: {hl.get('main_title', 'Unknown')}"
-        edl_lines.extend([line1, line2])
-    return "\n".join(edl_lines) + "\n"
+
+def _derive_reel_name(filename: str) -> str:
+    """CMX3600 릴 이름은 관례적으로 8자 이내 영숫자 대문자를 씁니다.
+    업로드된 파일명에서 유추해, EDIUS에서 어떤 소스인지 알아보기 쉽게 합니다."""
+    base = os.path.splitext(filename)[0]
+    base = re.sub(r"[^A-Za-z0-9]", "", base).upper()
+    return base[:8] if base else "REEL001"
+
+
+def generate_edl(highlights: list, source_filename: str = "source.mp4", fps: float = 29.97) -> str:
+    """CMX3600 형식 EDL 생성.
+    - REC IN/OUT은 SRC와 별개로, 새 타임라인 위에 순차적으로(누적) 배치합니다.
+      (SRC와 REC를 동일하게 두면 클립들이 원본상의 원래 위치에 각각 떨어져
+      배치되어 하이라이트가 이어붙지 않습니다.)
+    - 트랙은 AA/V(오디오+비디오)로 지정해 컨폼 시 소리가 함께 따라오게 합니다.
+    - 실제 소스 fps에 맞는 타임코드(드롭프레임/논드롭)를 사용합니다.
+    - SOURCE FILE 코멘트로 원본 파일명을 남겨, EDIUS에서 릴 이름이 자동
+      매칭되지 않을 경우 수동으로 연결할 수 있게 합니다.
+    """
+    is_df = _is_ntsc_rate(fps)
+    fcm = "DROP FRAME" if is_df else "NON-DROP FRAME"
+    reel_name = _derive_reel_name(source_filename)
+
+    edl_lines = ["TITLE: AI_SHORTFORM_EDL", f"FCM: {fcm}", ""]
+    rec_cursor = 0.0  # 새 타임라인(REC) 누적 위치(초)
+
+    for i, hl in enumerate(highlights, 1):
+        src_start = float(hl.get("start_time", 0.0))
+        src_end = float(hl.get("end_time", 0.0))
+        clip_duration = max(0.0, src_end - src_start)
+
+        src_in_tc = seconds_to_timecode(src_start, fps)
+        src_out_tc = seconds_to_timecode(src_end, fps)
+        rec_in_tc = seconds_to_timecode(rec_cursor, fps)
+        rec_out_tc = seconds_to_timecode(rec_cursor + clip_duration, fps)
+        rec_cursor += clip_duration
+
+        event_num = f"{i:03d}"
+        edl_lines.append(f"{event_num}  {reel_name:<8} AA/V  C        {src_in_tc} {src_out_tc} {rec_in_tc} {rec_out_tc}")
+        edl_lines.append(f"* FROM CLIP NAME: {hl.get('main_title', 'Unknown')}")
+        edl_lines.append(f"* SOURCE FILE: {source_filename}")
+        edl_lines.append("")
+
+    return "\n".join(edl_lines)
 
 def get_media_duration(file_path: str) -> float:
     """ffprobe로 미디어 전체 길이(초)를 조회합니다. 하이라이트 구간이
@@ -314,6 +389,30 @@ def get_media_duration(file_path: str) -> float:
         return float(result.stdout.strip())
     except (subprocess.CalledProcessError, ValueError):
         return 0.0
+
+
+def get_video_fps(file_path: str) -> float:
+    """ffprobe로 실제 영상 프레임레이트를 조회합니다. EDL의 타임코드가
+    실제 소스와 어긋나지 않으려면 이 값을 써야 합니다.
+    조회 실패(오디오 전용 파일 등) 시 한국 방송 표준인 29.97fps로 폴백합니다."""
+    cmd = [
+        "ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=r_frame_rate",
+        "-of", "default=noprint_wrappers=1:nokey=1", file_path,
+    ]
+    try:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+        raw = result.stdout.strip()
+        if not raw:
+            return 29.97
+        if "/" in raw:
+            num, den = raw.split("/")
+            fps = float(num) / float(den) if float(den) != 0 else 29.97
+        else:
+            fps = float(raw)
+        return fps if fps > 0 else 29.97
+    except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
+        return 29.97
 
 
 def prepare_audio_for_groq(input_file_path: str) -> str:
@@ -497,7 +596,7 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
 # ==============================================================================
 # 5. 하이라이트 카드 렌더링
 # ==============================================================================
-def render_highlight_card(index: int, highlight: dict) -> None:
+def render_highlight_card(index: int, highlight: dict, fps: float = 29.97) -> None:
     start_sec = float(highlight.get("start_time", 0.0))
     end_sec = float(highlight.get("end_time", 0.0))
     duration = round(end_sec - start_sec, 1)
@@ -509,7 +608,7 @@ def render_highlight_card(index: int, highlight: dict) -> None:
         f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
         f'<h3>{title}</h3>'
         f'<div class="h-row">'
-        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>'
+        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec, fps)} ~ {seconds_to_timecode(end_sec, fps)}</div>'
         f'<div class="tc-block" style="color:var(--brand); font-weight:500;">{icon("timer", 14, "currentColor")} {duration}초</div>'
         f'</div>'
         f'<div class="h-reason"><b>선정 이유</b>{reason}</div>'
@@ -566,6 +665,7 @@ def main():
             tmp.write(file_bytes)
             raw_input_path = tmp.name
         media_duration = get_media_duration(raw_input_path)
+        video_fps = get_video_fps(raw_input_path)
 
         render_pipeline(pipe_placeholder, active_index=1)
         segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
@@ -577,7 +677,7 @@ def main():
         highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
         
         render_pipeline(pipe_placeholder, active_index=3)
-        edl_content = generate_edl(highlights)
+        edl_content = generate_edl(highlights, source_filename=uploaded_file.name, fps=video_fps)
         render_pipeline(pipe_placeholder, active_index=3, done=True)
 
         st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
@@ -585,7 +685,7 @@ def main():
         h_cols = st.columns(3)
         for index, highlight in enumerate(highlights):
             with h_cols[index % 3]:
-                render_highlight_card(index, highlight)
+                render_highlight_card(index, highlight, fps=video_fps)
 
         st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
