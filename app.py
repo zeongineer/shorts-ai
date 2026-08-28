@@ -11,10 +11,7 @@ import streamlit.components.v1 as components
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-
-# openai-whisper 패키지는 `import whisper`로 임포트합니다 (requirements.txt의
-# openai-whisper, torch가 이 STT 파이프라인을 위한 것입니다).
-import whisper
+from groq import Groq
 
 # ==============================================================================
 # 1. 환경 및 페이지 설정
@@ -31,19 +28,23 @@ BRAND = "#1E3A8A"
 BRAND_DARK = "#1E40AF"
 BRAND_TINT = "#EFF6FF"
 
-# Whisper 로컬 모델 크기. Streamlit Community Cloud(무료 티어, 1GB RAM 근처)
-# 기준으로는 "base"가 속도/정확도/메모리의 균형점입니다. 환경변수로 조정 가능.
-WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
 
-
-def get_gemini_api_key() -> str:
+def _get_secret_or_env(key: str) -> str:
     """GitHub에 커밋되는 .env 대신, 배포 환경(Streamlit Community Cloud)에서는
     st.secrets(Settings > Secrets)를 우선 사용합니다. 로컬 개발 시에만 .env로 폴백합니다."""
     try:
-        secret_key = st.secrets.get("GEMINI_API_KEY", None)
+        secret_value = st.secrets.get(key, None)
     except Exception:
-        secret_key = None
-    return secret_key or os.getenv("GEMINI_API_KEY")
+        secret_value = None
+    return secret_value or os.getenv(key)
+
+
+def get_gemini_api_key() -> str:
+    return _get_secret_or_env("GEMINI_API_KEY")
+
+
+def get_groq_api_key() -> str:
+    return _get_secret_or_env("GROQ_API_KEY")
 
 # ==============================================================================
 # 2. 아이콘 (SVG, Lucide 스타일)
@@ -315,14 +316,18 @@ def get_media_duration(file_path: str) -> float:
         return 0.0
 
 
-def convert_to_wav(input_file_path: str) -> str:
-    """Whisper 입력용으로 16kHz 모노 WAV로 변환합니다. packages.txt의
-    ffmpeg 시스템 패키지가 설치되어 있어야 동작합니다."""
-    output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".wav").name
+def prepare_audio_for_groq(input_file_path: str) -> str:
+    """Groq API 업로드용으로 16kHz 모노 저비트레이트 MP3로 변환합니다.
+    (파일 용량을 최소화해 업로드 시간과 API 처리 시간을 줄입니다.)
+    packages.txt의 ffmpeg 시스템 패키지가 설치되어 있어야 동작합니다."""
+    output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    output_path = output_temp_file.name
+    output_temp_file.close()
+
     cmd = [
         "ffmpeg", "-y", "-i", input_file_path,
-        "-vn", "-ar", "16000", "-ac", "1",
-        output_path,
+        "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k",
+        "-f", "mp3", output_path,
     ]
     try:
         subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
@@ -334,41 +339,43 @@ def convert_to_wav(input_file_path: str) -> str:
         raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
 
 
-@st.cache_resource(show_spinner=False)
-def load_whisper_model(model_size: str):
-    """Whisper 모델은 최초 1회만 로드되도록 캐시합니다.
-    (그렇지 않으면 매 실행마다 수백 MB 모델을 다시 로드하게 됩니다.)"""
-    return whisper.load_model(model_size)
-
-
-def extract_transcript(file_bytes: bytes, file_name: str) -> list:
-    """업로드된 실제 미디어 파일을 ffmpeg로 오디오 변환 후 Whisper로 STT를
-    수행하여, 타임코드가 포함된 자막 세그먼트를 반환합니다."""
+def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> list:
+    """업로드된 실제 미디어 파일을 ffmpeg로 오디오 변환 후 Groq의 Whisper API로
+    STT를 수행하여, 타임코드가 포함된 자막 세그먼트를 반환합니다.
+    (로컬 torch/whisper 대신 API를 쓰므로 배포 용량과 메모리 부담이 거의 없습니다.)"""
     suffix = os.path.splitext(file_name)[1] or ".mp4"
     raw_path = None
-    wav_path = None
+    audio_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             tmp.write(file_bytes)
             raw_path = tmp.name
 
-        wav_path = convert_to_wav(raw_path)
+        audio_path = prepare_audio_for_groq(raw_path)
 
-        model = load_whisper_model(WHISPER_MODEL_SIZE)
-        result = model.transcribe(wav_path, language="ko", verbose=False)
+        with open(audio_path, "rb") as f:
+            transcription = groq_client.audio.transcriptions.create(
+                file=(os.path.basename(audio_path), f.read()),
+                model="whisper-large-v3",
+                response_format="verbose_json",
+                language="ko",
+            )
 
+        raw_segments = getattr(transcription, "segments", []) or []
         segments = []
-        for seg in result.get("segments", []):
-            text = str(seg.get("text", "")).strip()
+        for seg in raw_segments:
+            if isinstance(seg, dict):
+                start, end, text = seg.get("start", 0.0), seg.get("end", 0.0), seg.get("text", "")
+            else:
+                start = getattr(seg, "start", 0.0)
+                end = getattr(seg, "end", 0.0)
+                text = getattr(seg, "text", "")
+            text = str(text).strip()
             if text:
-                segments.append({
-                    "start": round(float(seg.get("start", 0.0)), 2),
-                    "end": round(float(seg.get("end", 0.0)), 2),
-                    "text": text,
-                })
+                segments.append({"start": round(float(start), 2), "end": round(float(end), 2), "text": text})
         return segments
     finally:
-        for path in (raw_path, wav_path):
+        for path in (raw_path, audio_path):
             if path and os.path.exists(path):
                 try:
                     os.remove(path)
@@ -514,15 +521,19 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 def main():
     render_header()
 
-    api_key = get_gemini_api_key()
-    if not api_key:
+    gemini_api_key = get_gemini_api_key()
+    groq_api_key = get_groq_api_key()
+    missing = [name for name, key in [("GEMINI_API_KEY", gemini_api_key), ("GROQ_API_KEY", groq_api_key)] if not key]
+    if missing:
         accessible_alert(
-            "GEMINI_API_KEY가 설정되지 않았습니다. Streamlit Cloud에서는 "
+            f"{', '.join(missing)}가 설정되지 않았습니다. Streamlit Cloud에서는 "
             "Settings → Secrets에, 로컬에서는 .env 파일에 설정해주세요.",
             kind="error",
             icon_name="alert-triangle",
         )
         return
+
+    groq_client = Groq(api_key=groq_api_key)
 
     st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
     
@@ -555,13 +566,13 @@ def main():
         media_duration = get_media_duration(raw_input_path)
 
         render_pipeline(pipe_placeholder, active_index=1)
-        segments = extract_transcript(file_bytes, uploaded_file.name)
+        segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
 
         if not segments:
             raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
         render_pipeline(pipe_placeholder, active_index=2)
-        highlights = run_gemini_highlight_extraction(api_key, segments, media_duration)
+        highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
         
         render_pipeline(pipe_placeholder, active_index=3)
         edl_content = generate_edl(highlights)
