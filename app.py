@@ -285,7 +285,6 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
 
 def extract_transcript(file_bytes: bytes, file_name: str) -> list:
     """실제 환경에 맞게 Whisper 등을 연동하거나 임시 세그먼트를 반환하는 STT 함수"""
-    # 예시를 위해 파일 크기를 기반으로 한 더미 세그먼트 생성 또는 실제 Whisper 연동 구현부 위치
     return [
         {"start": 0.0, "end": 15.0, "text": "뉴스 브리핑을 시작하겠습니다."},
         {"start": 15.1, "end": 45.0, "text": "오늘의 주요 뉴스입니다. 첫 소식입니다."},
@@ -315,8 +314,9 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list) -> 
     ]
     """
     
+    # 404 에러 방지를 위해 모델명을 최신 버전으로 변경
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-3.6-flash',
         contents=prompt,
     )
     
@@ -324,110 +324,4 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list) -> 
         text_res = response.text.strip()
         if text_res.startswith("```json"):
             text_res = text_res[7:-3].strip()
-        elif text_res.startswith("```"):
-            text_res = text_res[3:-3].strip()
-        return json.loads(text_res)
-    except Exception as e:
-        # JSON 파싱 실패 시 기본 Fallback 반환
-        return [
-            {"main_title": "뉴스 하이라이트 1", "sub_title": "주요 이슈", "start_time": 0.0, "end_time": 30.0, "reason": "AI 응답 파싱 중 오류가 발생하여 기본 구간이 지정되었습니다."}
-        ]
-
-# ==============================================================================
-# 5. 하이라이트 카드 렌더링
-# ==============================================================================
-def render_highlight_card(index: int, highlight: dict) -> None:
-    start_sec = float(highlight.get("start_time", 0.0))
-    end_sec = float(highlight.get("end_time", 0.0))
-    duration = round(end_sec - start_sec, 1)
-    title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
-    reason = html.escape(str(highlight.get("reason", "-")))
-
-    st.markdown(
-        f'<article class="h-card" style="height:100%;">'
-        f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
-        f'<h3>{title}</h3>'
-        f'<div class="h-row">'
-        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>'
-        f'<div class="tc-block" style="color:var(--brand); font-weight:500;">{icon("timer", 14, "currentColor")} {duration}초</div>'
-        f'</div>'
-        f'<div class="h-reason"><b>선정 이유</b>{reason}</div>'
-        f'</article>',
-        unsafe_allow_html=True,
-    )
-
-# ==============================================================================
-# 6. 메인 애플리케이션
-# ==============================================================================
-def main():
-    render_header()
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        st.error("GEMINI_API_KEY가 설정되지 않았습니다. 환경 변수나 .env 파일을 확인해주세요.")
-        return
-
-    st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
-    
-    uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
-    
-    if uploaded_file:
-        start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
-    else:
-        start_button = False
-        return
-    
-    st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-    
-    pipe_placeholder = st.empty()
-    render_pipeline(pipe_placeholder, active_index=-1)
-
-    if not start_button:
-        return
-
-    try:
-        render_pipeline(pipe_placeholder, active_index=0)
-        file_bytes = uploaded_file.read()
-        
-        render_pipeline(pipe_placeholder, active_index=1)
-        segments = extract_transcript(file_bytes, uploaded_file.name)
-        
-        render_pipeline(pipe_placeholder, active_index=2)
-        highlights = run_gemini_highlight_extraction(api_key, segments)
-        
-        render_pipeline(pipe_placeholder, active_index=3)
-        edl_content = generate_edl(highlights)
-        render_pipeline(pipe_placeholder, active_index=3, done=True)
-
-        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-
-        h_cols = st.columns(3)
-        for index, highlight in enumerate(highlights):
-            with h_cols[index % 3]:
-                render_highlight_card(index, highlight)
-
-        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-        edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
-
-        b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
-        href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
-
-        st.markdown(
-            f'<div class="h-card dl-wrapper">'
-            f'<div style="display: flex; align-items: center; gap: 16px;">'
-            f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
-            f'<div>'
-            f'<div class="file-name">{html.escape(edl_filename)}</div>'
-            f'<div class="file-meta">CMX 3600 Format 타임코드 데이터</div>'
-            f'</div>'
-            f'</div>'
-            f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">EDL 파일 다운로드</a>'
-            f'</div>', 
-            unsafe_allow_html=True
-        )
-
-    except Exception as e:
-        accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
-
-if __name__ == "__main__":
-    main()
+        elif text_res.startswith("
