@@ -19,7 +19,7 @@ from groq import Groq
 # ==============================================================================
 load_dotenv()
 st.set_page_config(
-    page_title="뉴스 숏폼 하이라이트 추출기",
+    page_title="뉴스 주제별 구간 자동 분할기",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -65,7 +65,6 @@ _ICON_PATHS = {
     "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     "timer": '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
     "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
-    "play": '<polygon points="5 3 19 12 5 21 5 3"/>',
 }
 
 def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: float = 2) -> str:
@@ -159,6 +158,7 @@ st.markdown(
         background:var(--surface); border:1px solid var(--border); border-radius:16px;
         padding:24px; box-shadow: var(--shadow-md);
         display:flex; flex-direction:column; gap:12px;
+        margin-bottom: 16px;
     }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
     .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
@@ -176,8 +176,8 @@ st.markdown(
     .tc-block {{ display: flex; align-items: center; gap: 6px; }}
     
     .h-reason {{
-        margin-top: 4px; background:var(--brand-tint); border-radius:8px; border: none;
-        padding:14px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
+        margin-top: 8px; background:var(--brand-tint); border-radius:8px; border: none;
+        padding:16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
     }}
     .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:4px; font-weight: 600; }}
 
@@ -245,13 +245,13 @@ def render_header() -> None:
     st.markdown(
         '<header class="app-header">'
         '<div class="app-title-group">'
-        '<h1 class="app-title">뉴스 숏폼 하이라이트 자동 추출기</h1>'
-        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 자막을 분석하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
+        '<h1 class="app-title">뉴스 주제별 구간 자동 분할기</h1>'
+        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 자막을 분석하여 전체 영상의 주제별 단위로 구간을 빠짐없이 자동 분할합니다.</p>'
         '</div>'
         '</header>',
         unsafe_allow_html=True,
     )
-    accessible_alert("처리 완료 시 편집기(EDIUS 등)에 즉시 임포트 가능한 타임코드 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
+    accessible_alert("처리 완료 시 전체 분할된 구간을 편집기(EDIUS 등)에 순차적으로 임포트할 수 있는 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
 
 # ==============================================================================
 # 4. 파이프라인 및 방송 데이터 포맷팅
@@ -259,7 +259,7 @@ def render_header() -> None:
 PIPELINE_STEPS = [
     {"title": "미디어 전처리"},
     {"title": "음성 인식 (STT)"},
-    {"title": "AI 숏폼 분석"},
+    {"title": "AI 주제별 구간 분석"},
     {"title": "EDL 패키징"},
 ]
 
@@ -288,6 +288,7 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
 def _is_ntsc_rate(fps: float) -> bool:
     return any(abs(fps - r) < 0.05 for r in (23.976, 29.97, 59.94))
 
+
 def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
     seconds = max(0.0, float(seconds))
     drop_frames = 2 if nominal_fps == 30 else 4
@@ -309,6 +310,7 @@ def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
     hh = total_minutes // 60
     return f"{hh:02d}:{mm:02d}:{ss:02d};{ff:02d}"
 
+
 def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
     seconds = max(0.0, float(seconds))
     if _is_ntsc_rate(fps):
@@ -323,17 +325,19 @@ def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
     ff = total_frames % nominal
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
+
 def _derive_reel_name(filename: str) -> str:
     base = os.path.splitext(filename)[0]
     base = re.sub(r"[^A-Za-z0-9]", "", base).upper()
     return base[:8] if base else "REEL001"
+
 
 def generate_edl(highlights: list, source_filename: str = "source.mp4", fps: float = 29.97) -> str:
     is_df = _is_ntsc_rate(fps)
     fcm = "DROP FRAME" if is_df else "NON-DROP FRAME"
     reel_name = _derive_reel_name(source_filename)
 
-    edl_lines = ["TITLE: AI_SHORTFORM_EDL", f"FCM: {fcm}", ""]
+    edl_lines = ["TITLE: AI_TOPIC_SPLIT_EDL", f"FCM: {fcm}", ""]
     rec_cursor = 0.0
 
     for i, hl in enumerate(highlights, 1):
@@ -366,6 +370,7 @@ def get_media_duration(file_path: str) -> float:
     except (subprocess.CalledProcessError, ValueError):
         return 0.0
 
+
 def get_video_fps(file_path: str) -> float:
     cmd = [
         "ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -386,6 +391,7 @@ def get_video_fps(file_path: str) -> float:
     except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
         return 29.97
 
+
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -402,7 +408,9 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
     except subprocess.CalledProcessError as e:
         if os.path.exists(output_path):
             os.remove(output_path)
-        raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{e.stderr.decode('utf-8', errors='ignore')}")
+        error_message = e.stderr.decode("utf-8", errors="ignore")
+        raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
+
 
 def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> list:
     suffix = os.path.splitext(file_name)[1] or ".mp4"
@@ -444,61 +452,15 @@ def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> 
                 except OSError:
                     pass
 
-def generate_preview_clip(input_file_path: str, start_time: float, end_time: float) -> str:
-    """미리보기용으로 원본 전체 대신 해당 하이라이트 구간만 H.264/AAC MP4로 잘라내어 인코딩합니다."""
-    output_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
-    output_path = output_temp.name
-    output_temp.close()
 
-    duration = max(1.0, end_time - start_time)
-    cmd = [
-        "ffmpeg", "-y", "-ss", str(start_time), "-i", input_file_path,
-        "-t", str(duration), "-c:v", "libx264", "-preset", "ultrafast",
-        "-crf", "28", "-c:a", "aac", "-b:a", "96k", "-pix_fmt", "yuv420p",
-        output_path
-    ]
-    try:
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-        return output_path
-    except subprocess.CalledProcessError:
-        if os.path.exists(output_path):
-            os.remove(output_path)
-        return ""
-
-def generate_vtt_subtitles(segments: list, clip_start: float, clip_end: float) -> str:
-    """해당 하이라이트 구간에 포함되는 자막만 추출하여 WebVTT(.vtt) 형식으로 변환합니다."""
-    vtt_lines = ["WEBVTT", ""]
-    idx = 1
-    for seg in segments:
-        s = seg.get("start", 0.0)
-        e = seg.get("end", 0.0)
-        text = seg.get("text", "")
-
-        # 클립 범위와 겹치는 자막만 포함하되, 시간축은 클립 시작점 기준(0초부터)으로 조정
-        if e >= clip_start and s <= clip_end:
-            rel_s = max(0.0, s - clip_start)
-            rel_e = max(rel_s + 0.5, e - clip_start)
-            
-            def fmt_time(sec):
-                h = int(sec // 3600)
-                m = int((sec % 3600) // 60)
-                s_ = int(sec % 60)
-                ms = int(round((sec - int(sec)) * 1000))
-                return f"{h:02d}:{m:02d}:{s_:02d}.{ms:03d}"
-
-            vtt_lines.append(f"{idx}")
-            vtt_lines.append(f"{fmt_time(rel_s)} --> {fmt_time(rel_e)}")
-            vtt_lines.append(text)
-            vtt_lines.append("")
-            idx += 1
-    return "\n".join(vtt_lines)
-
-def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
+def sanitize_and_fix_topics(raw_topics: list, media_duration: float = 0.0) -> list:
+    """Gemini가 반환한 주제별 구간이 전체 영상 범위를 벗어나지 않도록 하고,
+    시간순으로 올바르게 정렬 및 보정합니다."""
     fixed_list = []
-    if not isinstance(raw_highlights, list):
+    if not isinstance(raw_topics, list):
         return fixed_list
 
-    for item in raw_highlights:
+    for item in raw_topics:
         if not isinstance(item, dict):
             continue
         try:
@@ -512,21 +474,7 @@ def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.
                 start_time = min(start_time, media_duration)
                 end_time = min(end_time, media_duration)
 
-            duration = end_time - start_time
-            if duration < 30.0:
-                candidate_end = start_time + 30.0
-                if media_duration > 0 and candidate_end > media_duration:
-                    start_time = max(0.0, media_duration - 30.0)
-                    end_time = media_duration
-                else:
-                    end_time = candidate_end
-
-            duration = end_time - start_time
-            if duration > 60.0:
-                end_time = start_time + 60.0
-
-            duration = end_time - start_time
-            if start_time >= end_time or not (29.0 <= duration <= 61.0):
+            if start_time >= end_time:
                 continue
 
             item["start_time"] = round(start_time, 2)
@@ -535,9 +483,13 @@ def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.
         except (TypeError, ValueError):
             continue
 
+    # 시작 시간 순으로 정렬
+    fixed_list.sort(key=lambda x: x["start_time"])
     return fixed_list
 
-def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
+
+def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
+    """Gemini API를 사용하여 뉴스 영상 전체를 주제별로 빠짐없이 구간 분할."""
     client = genai.Client(api_key=api_key)
     preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
 
@@ -546,16 +498,14 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
     )
 
     prompt = f"""
-너는 뉴스 방송 수석 에디터이자 YouTube Shorts/TikTok 전문 숏폼 에디터이다.
-아래 뉴스 자막 데이터의 타임코드를 분석하여 숏폼으로 제작하기 가장 임팩트 있고
-흥미로운 핵심 구간 3곳을 선정하라.
+너는 전문 방송 뉴스 에디터이다.
+아래 제공된 뉴스 자막 전체의 타임코드를 분석하여, 뉴스 영상 내에 등장하는 **모든 독립된 주제(아이템, 리포트, 오프닝, 클로징 등)별로 빠짐없이 구간을 나누어라.**
 
 [필수 규칙]
-1. 정확히 3개의 하이라이트를 반환한다.
-2. 각 구간의 길이는 반드시 30초 이상 60초 이하여야 한다.
-3. start_time은 선택한 첫 번째 자막의 시작 시간, end_time은 마지막 자막의 종료 시간이어야 한다.
-4. 문장이 중간에 잘리지 않는 완전한 뉴스 맥락을 선택하라.
-5. 영상 전체 길이는 약 {media_duration:.2f}초이다.
+1. 영상의 처음부터 끝까지 전체 흐름이 누락되는 구간 없이 연속적인 주제별 구간들로 나눈다.
+2. 각 구간은 의미가 통하는 하나의 주제 단위여야 하며, 시작 시간과 종료 시간을 정확히 명시한다.
+3. 영상 총 길이는 약 {media_duration:.2f}초이다.
+4. 각 주제별로 명확한 제목과 요약 설명을 작성한다.
 
 [뉴스 자막 데이터]
 {formatted_transcript}
@@ -568,11 +518,11 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
             "items": {
                 "type": "OBJECT",
                 "properties": {
-                    "main_title": {"type": "STRING", "description": "주제 제목 (15자 이내)"},
-                    "sub_title": {"type": "STRING", "description": "카테고리/핵심 요약 (25자 이내)"},
-                    "start_time": {"type": "NUMBER", "description": "시작 시간(초)"},
-                    "end_time": {"type": "NUMBER", "description": "종료 시간(초)"},
-                    "reason": {"type": "STRING", "description": "선정 이유"},
+                    "main_title": {"type": "STRING", "description": "주제/리포트 제목 (20자 이내)"},
+                    "sub_title": {"type": "STRING", "description": "카테고리/핵심 요약 (30자 이내)"},
+                    "start_time": {"type": "NUMBER", "description": "구간 시작 시간(초)"},
+                    "end_time": {"type": "NUMBER", "description": "구간 종료 시간(초)"},
+                    "reason": {"type": "STRING", "description": "해당 주제 요약 및 설명"},
                 },
                 "required": ["main_title", "sub_title", "start_time", "end_time", "reason"],
             },
@@ -585,26 +535,26 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
         try:
             response = client.models.generate_content(model=model_name, contents=prompt, config=gen_config)
             raw_data = json.loads(response.text)
-            fixed = sanitize_and_fix_highlights(raw_data, media_duration)
+            fixed = sanitize_and_fix_topics(raw_data, media_duration)
             if len(fixed) >= 1:
-                return fixed[:3]
+                return fixed
             failures.append(f"{model_name}: 유효한 구간을 반환하지 않음")
         except Exception as error:
             failures.append(f"{model_name}: {error}")
             continue
 
     detail = " / ".join(failures) if failures else "알 수 없는 오류"
-    raise RuntimeError(f"하이라이트 추출에 실패했습니다 → {detail}")
+    raise RuntimeError(f"주제별 구간 분할에 실패했습니다 → {detail}")
 
 # ==============================================================================
-# 5. 하이라이트 카드 렌더링 및 미리보기
+# 5. 토픽 구간 카드 렌더링
 # ==============================================================================
-def render_highlight_card(index: int, highlight: dict, segments: list, source_path: str, fps: float = 29.97) -> None:
-    start_sec = float(highlight.get("start_time", 0.0))
-    end_sec = float(highlight.get("end_time", 0.0))
+def render_topic_card(index: int, topic: dict, fps: float = 29.97) -> None:
+    start_sec = float(topic.get("start_time", 0.0))
+    end_sec = float(topic.get("end_time", 0.0))
     duration = round(end_sec - start_sec, 1)
-    title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
-    reason = html.escape(str(highlight.get("reason", "-")))
+    title = html.escape(str(topic.get("main_title", f"주제 {index + 1}")))
+    reason = html.escape(str(topic.get("reason", "-")))
 
     st.markdown(
         f'<article class="h-card">'
@@ -614,41 +564,10 @@ def render_highlight_card(index: int, highlight: dict, segments: list, source_pa
         f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec, fps)} ~ {seconds_to_timecode(end_sec, fps)}</div>'
         f'<div class="tc-block" style="color:var(--brand); font-weight:500;">{icon("timer", 14, "currentColor")} {duration}초</div>'
         f'</div>'
-        f'<div class="h-reason"><b>선정 이유</b>{reason}</div>'
+        f'<div class="h-reason"><b>주제 요약</b>{reason}</div>'
         f'</article>',
         unsafe_allow_html=True,
     )
-
-    preview_key = f"preview_{index}"
-    is_preview_open = st.session_state.get(preview_key, False)
-
-    if not is_preview_open:
-        if st.button(f"▶ 재생 및 자막 미리보기 #{index + 1}", key=f"btn_{index}", use_container_width=True):
-            st.session_state[preview_key] = True
-            st.rerun()
-    else:
-        if st.button(f"▲ 미리보기 닫기 #{index + 1}", key=f"close_{index}", use_container_width=True):
-            st.session_state[preview_key] = False
-            st.rerun()
-        
-        with st.spinner("미리보기 클립 및 자막 생성 중..."):
-            clip_path = generate_preview_clip(source_path, start_sec, end_sec)
-            vtt_content = generate_vtt_subtitles(segments, start_sec, end_sec)
-
-        if clip_path and os.path.exists(clip_path):
-            try:
-                st.video(clip_path, subtitles=vtt_content if vtt_content.count("-->") > 0 else None)
-            except TypeError:
-                # 구버전 Streamlit 호환용 폴백
-                st.video(clip_path)
-                accessible_alert("현재 사용 중인 Streamlit 버전은 자막 오버레이(subtitles 파라미터)를 직접 지원하지 않아 영상만 재생됩니다.", kind="info")
-            finally:
-                try:
-                    os.remove(clip_path)
-                except OSError:
-                    pass
-        else:
-            accessible_alert("미리보기 클립을 생성하지 못했습니다.", kind="error")
 
 # ==============================================================================
 # 6. 메인 애플리케이션
@@ -671,83 +590,56 @@ def main():
     groq_client = Groq(api_key=groq_api_key)
 
     st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
+    
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
     if uploaded_file:
-        file_bytes = uploaded_file.read()
-        
-        # 파일이 변경되면 기존 결과 초기화
-        if st.session_state.get("last_uploaded_name") != uploaded_file.name:
-            st.session_state["last_uploaded_name"] = uploaded_file.name
-            st.session_state["highlights"] = None
-            st.session_state["segments"] = None
-            st.session_state["video_fps"] = 29.97
-            st.session_state["edl_content"] = None
-
-        start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
+        start_button = st.button("분할 및 EDL 생성 시작", type="primary", use_container_width=True)
     else:
         start_button = False
-        st.session_state.clear()
         return
     
     st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
     
     pipe_placeholder = st.empty()
+    render_pipeline(pipe_placeholder, active_index=-1)
 
-    if start_button:
-        raw_input_path = None
-        try:
-            render_pipeline(pipe_placeholder, active_index=0)
-            
-            suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(file_bytes)
-                raw_input_path = tmp.name
-            
-            # 임시 파일 경로를 세션에 저장해 미리보기 재생 시 사용
-            st.session_state["source_path"] = raw_input_path
-            media_duration = get_media_duration(raw_input_path)
-            video_fps = get_video_fps(raw_input_path)
-            st.session_state["video_fps"] = video_fps
+    if not start_button:
+        return
 
-            render_pipeline(pipe_placeholder, active_index=1)
-            segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
-            st.session_state["segments"] = segments
+    raw_input_path = None
+    try:
+        render_pipeline(pipe_placeholder, active_index=0)
+        file_bytes = uploaded_file.read()
 
-            if not segments:
-                raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
+        suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(file_bytes)
+            raw_input_path = tmp.name
+        media_duration = get_media_duration(raw_input_path)
+        video_fps = get_video_fps(raw_input_path)
 
-            render_pipeline(pipe_placeholder, active_index=2)
-            highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
-            st.session_state["highlights"] = highlights
-            
-            render_pipeline(pipe_placeholder, active_index=3)
-            edl_content = generate_edl(highlights, source_filename=uploaded_file.name, fps=video_fps)
-            st.session_state["edl_content"] = edl_content
-            render_pipeline(pipe_placeholder, active_index=3, done=True)
+        render_pipeline(pipe_placeholder, active_index=1)
+        segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
 
-        except Exception as e:
-            accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
-            return
+        if not segments:
+            raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
-    # st.session_state에 데이터가 있으면 화면에 결과 렌더링 (재실행되어도 유지됨)
-    if st.session_state.get("highlights"):
+        render_pipeline(pipe_placeholder, active_index=2)
+        topics = run_gemini_topic_splitting(gemini_api_key, segments, media_duration)
+        
+        render_pipeline(pipe_placeholder, active_index=3)
+        edl_content = generate_edl(topics, source_filename=uploaded_file.name, fps=video_fps)
         render_pipeline(pipe_placeholder, active_index=3, done=True)
-        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-
-        highlights = st.session_state["highlights"]
-        segments = st.session_state.get("segments", [])
-        source_path = st.session_state.get("source_path", "")
-        video_fps = st.session_state.get("video_fps", 29.97)
-
-        h_cols = st.columns(3)
-        for index, highlight in enumerate(highlights):
-            with h_cols[index % 3]:
-                render_highlight_card(index, highlight, segments, source_path, fps=video_fps)
 
         st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-        edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
-        edl_content = st.session_state["edl_content"]
+
+        # 주제별로 전체 분할된 구간들을 세로로 보기 쉽게 순서대로 렌더링
+        for index, topic in enumerate(topics):
+            render_topic_card(index, topic, fps=video_fps)
+
+        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+        edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_topic_split.edl"
 
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
         href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
@@ -758,13 +650,22 @@ def main():
             f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
             f'<div>'
             f'<div class="file-name">{html.escape(edl_filename)}</div>'
-            f'<div class="file-meta">CMX 3600 Format 타임코드 데이터</div>'
+            f'<div class="file-meta">전체 주제별 분할 타임코드 데이터 (CMX 3600)</div>'
             f'</div>'
             f'</div>'
             f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">EDL 파일 다운로드</a>'
             f'</div>', 
             unsafe_allow_html=True
         )
+
+    except Exception as e:
+        accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
+    finally:
+        if raw_input_path and os.path.exists(raw_input_path):
+            try:
+                os.remove(raw_input_path)
+            except OSError:
+                pass
 
 if __name__ == "__main__":
     main()
