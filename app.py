@@ -119,7 +119,6 @@ st.markdown(
     }}
     [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
 
-    /* 파이프라인 분석 카드 스타일 수정 (높이 제한 해제) */
     .pipe-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:20px 24px; box-shadow: var(--shadow-sm);
@@ -135,7 +134,6 @@ st.markdown(
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
-    /* 공통 카드 스타일 (하이라이트 카드 및 다운로드 카드) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:24px; box-shadow: var(--shadow-sm);
@@ -155,9 +153,6 @@ st.markdown(
     .h-reason b {{ color:var(--text-primary); display:block; margin-bottom:4px; }}
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* ==============================================================================
-       커스텀 HTML 다운로드 카드 스타일
-       ============================================================================== */
     .dl-wrapper {{
         flex-direction: row; 
         align-items: center; 
@@ -176,7 +171,7 @@ st.markdown(
         font-weight: 600; font-size: 0.95rem;
         padding: 0.6rem 1.5rem;
         border-radius: 8px;
-        text-decoration: none !important; /* 밑줄 강제 제거 */
+        text-decoration: none !important;
         display: inline-block;
         box-shadow: 0 2px 4px rgba(28,157,233,0.2);
         transition: all 0.2s ease;
@@ -187,7 +182,7 @@ st.markdown(
         border-color: var(--brand-dark);
         box-shadow: 0 4px 12px rgba(28,157,233,0.3);
         transform: translateY(-1px);
-        text-decoration: none !important; /* hover 상태에서도 밑줄 제거 */
+        text-decoration: none !important;
     }}
     </style>
     """,
@@ -223,7 +218,7 @@ def render_header() -> None:
     accessible_alert("처리 완료 시 편집기(EDIUS)에 즉시 임포트 가능한 타임코드 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
 
 # ==============================================================================
-# 4. 파이프라인 컴포넌트
+# 4. 파이프라인 및 방송 데이터 포맷팅
 # ==============================================================================
 PIPELINE_STEPS = [
     {"title": "미디어 전처리", "desc": "16kHz Mono 오디오 최적화 및 임시 파일 생성"},
@@ -242,7 +237,6 @@ def render_pipeline(placeholders: list, active_index: int, done: bool = False) -
         else:
             card_class, status_html = "", f'<div class="pipe-status pending">{icon("circle", 14, "currentColor", 2)} 대기 중</div>'
 
-        # 넘버링과 설명(desc)을 렌더링에서 제외하여 간결하게 구성
         ph.markdown(f"""
             <div class="pipe-card {card_class}">
                 <div class="pipe-title">{step['title']}</div>
@@ -250,15 +244,35 @@ def render_pipeline(placeholders: list, active_index: int, done: bool = False) -
             </div>
             """, unsafe_allow_html=True)
 
-def seconds_to_df_timecode(seconds: float) -> str:
-    return f"00:00:{int(seconds):02d};00" 
+# 방송 표준 시:분:초:프레임 (HH:MM:SS:FF) 변환기 - 29.97/30fps NDF 기준
+def seconds_to_timecode(seconds: float, fps: int = 30) -> str:
+    total_frames = int(round(seconds * fps))
+    hh = total_frames // (3600 * fps)
+    mm = (total_frames % (3600 * fps)) // (60 * fps)
+    ss = (total_frames % (60 * fps)) // fps
+    ff = total_frames % fps
+    return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
 def seconds_to_min_sec(seconds: float) -> str:
-    minutes, seconds = divmod(max(0, int(seconds)), 60)
-    return f"{minutes:02d}:{seconds:02d}"
+    minutes, secs = divmod(max(0, int(seconds)), 60)
+    return f"{minutes:02d}:{secs:02d}"
 
+# 하이라이트 배열을 순회하여 실제 CMX 3600 EDL 라인 생성
 def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
-    return "TITLE: MOCK_EDL\nFCM: NON-DROP FRAME\n"
+    edl_lines = ["TITLE: MOCK_EDL", "FCM: NON-DROP FRAME"]
+    
+    for i, hl in enumerate(highlights):
+        start_tc = seconds_to_timecode(hl.get("start_time", 0.0))
+        end_tc = seconds_to_timecode(hl.get("end_time", 0.0))
+        
+        event_num = f"{(i+1):03d}"
+        # CMX 3600 형식: 이벤트번호 | 릴이름 | 트랙 | 트랜지션 | 소스IN | 소스OUT | 레코드IN | 레코드OUT
+        line1 = f"{event_num}  {reel_name:<8} V     C        {start_tc} {end_tc} {start_tc} {end_tc}"
+        line2 = f"* FROM CLIP NAME: {hl.get('main_title', 'Unknown')}"
+        
+        edl_lines.extend([line1, line2])
+        
+    return "\n".join(edl_lines) + "\n"
 
 def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
     return [ 
@@ -286,7 +300,7 @@ def render_highlight_card(index: int, highlight: dict) -> None:
                 <span class="step-num">{index + 1}</span>
             </div>
             <h3>{title}</h3>
-            <div class="h-row">{icon('clock', 14, 'currentColor')} {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}</div>
+            <div class="h-row">{icon('clock', 14, 'currentColor')} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>
             <div class="h-row">{icon('timer', 14, 'currentColor')} {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)</div>
             <div class="h-reason"><b>선정 이유</b>{reason}</div>
         </article>
@@ -321,7 +335,9 @@ def main():
         render_pipeline(pipe_placeholders, active_index=0)
         render_pipeline(pipe_placeholders, active_index=1)
         render_pipeline(pipe_placeholders, active_index=2)
+        
         highlights = run_gemini_highlight_extraction("mock_key", [])
+        
         render_pipeline(pipe_placeholders, active_index=3)
         edl_content = generate_edl(highlights)
         render_pipeline(pipe_placeholders, active_index=3, done=True)
@@ -336,7 +352,6 @@ def main():
         st.markdown('<div class="section-title">💾 EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
-        # Streamlit 레이아웃을 사용하지 않고 순수 HTML Base64 다운로드 링크 생성
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
         href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
 
