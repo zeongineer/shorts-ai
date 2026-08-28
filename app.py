@@ -23,113 +23,142 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# 웹 접근성(WCAG AA) 준수 커스텀 CSS 스타일링
-st.markdown(
-    """
-    <style>
-    /* 색상 대비 4.5:1 이상 준수 */
-    .title-container {
-        background-color: #FFFFFF;
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-bottom: 1.2rem;
-        border: 1px solid #E2E8F0;
-    }
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #0F172A; /* 실측 대비 약 17.9:1 */
-        margin-bottom: 0.5rem;
-    }
-    .sub-title {
-        font-size: 1.05rem;
-        color: #334155; /* 실측 대비 약 10.4:1 */
-        margin-bottom: 0;
-        line-height: 1.6;
-    }
-    .highlight-card {
-        background-color: #FFFFFF;
-        border: 2px solid #CBD5E1; /* 테두리 명확화 */
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-    .badge {
-        background-color: #1D4ED8; /* 실측 대비 약 6.7:1 */
-        color: #FFFFFF;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 700;
-        display: inline-block;
-        margin-bottom: 10px;
-    }
-    .time-info {
-        background-color: #F8FAFC;
-        border-left: 5px solid #1D4ED8;
-        padding: 12px 14px;
-        font-family: monospace;
-        font-size: 0.95rem;
-        color: #0F172A;
-        margin: 12px 0;
-        border-radius: 0 6px 6px 0;
-    }
-    
-    /* 접근 가능한 포커스 링 (WCAG 2.4.7 Focus Visible 준수) */
-    .focusable-heading {
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-        padding: 4px 8px;
-        border-radius: 6px;
-        color: #0F172A;
-    }
-    .focusable-heading:focus, .focusable-heading:focus-visible {
-        outline: 3px solid #1D4ED8 !important;
-        outline-offset: 3px !important;
-    }
+BRAND = "#1C9DE9"
+BRAND_DARK = "#0E7FC4"
+BRAND_TINT = "#EAF6FE"
 
-    /* 접근 가능한 알림(alert) 박스 */
-    .a11y-alert {
-        border-radius: 8px;
-        padding: 14px 16px;
-        margin-bottom: 12px;
-        font-size: 0.95rem;
-        line-height: 1.5;
-        border: 1px solid transparent;
-    }
-    .a11y-alert-info {
-        background-color: #EFF6FF;
-        border-color: #BFDBFE;
-        color: #1E3A8A;
-    }
-    .a11y-alert-success {
-        background-color: #F0FDF4;
-        border-color: #BBF7D0;
-        color: #14532D;
-    }
-    .a11y-alert-error {
-        background-color: #FEF2F2;
-        border-color: #FECACA;
-        color: #7F1D1D;
-    }
-    .step-text {
-        color: #0F172A;
-        font-size: 0.95rem;
-        margin: 4px 0;
-    }
-    /* 스크린 리더 전용 숨김 클래스 */
-    .sr-only {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-    }
+# 카드 컬러 로테이션 (하이라이트 3선을 한눈에 구분하기 위한 색/아이콘 세트)
+CARD_THEMES = [
+    {"class": "c-blue", "icon": "📋"},
+    {"class": "c-green", "icon": "🎙️"},
+    {"class": "c-amber", "icon": "📈"},
+]
+
+st.markdown(
+    f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+KR:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+    :root{{
+        --brand:{BRAND};
+        --brand-dark:{BRAND_DARK};
+        --brand-tint:{BRAND_TINT};
+        --bg-base:#F4F6F8;
+        --surface:#FFFFFF;
+        --border:#E1E5EA;
+        --text-primary:#10161D;
+        --text-secondary:#5B6570;
+        --green:#1F9D6B;
+        --green-tint:#E8F7F0;
+        --amber:#B8790E;
+        --amber-tint:#FDF3E2;
+    }}
+
+    .stApp {{ background-color: var(--bg-base); }}
+    body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
+
+    /* 헤더 */
+    .app-header {{ display:flex; align-items:flex-start; gap:14px; margin-bottom: 4px; }}
+    .app-logo {{
+        width:38px; height:38px; border-radius:9px; background:var(--brand);
+        display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;
+    }}
+    .app-title {{
+        font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.55rem;
+        margin:0 0 6px; color:#0B0F14;
+    }}
+    .app-sub {{ color:var(--text-secondary); font-size:0.92rem; line-height:1.65; margin:0; }}
+
+    /* 알림 배너 */
+    .a11y-alert {{
+        border-radius:8px; padding:12px 16px; margin-bottom:12px;
+        font-size:0.9rem; line-height:1.5; border:1px solid transparent;
+    }}
+    .a11y-alert-info {{ background:var(--brand-tint); border-color:#BFE1FA; color:var(--brand-dark); }}
+    .a11y-alert-success {{ background:var(--green-tint); border-color:#BFE9D6; color:#0F5C3E; }}
+    .a11y-alert-error {{ background:#FDEDEC; border-color:#F5C6C2; color:#8A2E27; }}
+
+    /* 섹션 타이틀 */
+    .section-title {{ font-size:1.05rem; font-weight:700; margin: 22px 0 12px; color:var(--text-primary); }}
+
+    /* 업로드 파일 카드 */
+    .file-card {{
+        background:var(--surface); border:1px solid var(--border); border-radius:10px;
+        padding:18px; display:flex; align-items:center; gap:12px; height:100%;
+    }}
+    .file-icon {{
+        width:38px; height:38px; border-radius:8px; background:var(--brand); color:#fff;
+        display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+    }}
+    .file-name {{ font-weight:700; font-size:0.92rem; color:var(--text-primary); }}
+    .file-meta {{ color:var(--text-secondary); font-size:0.78rem; }}
+    .file-ok {{
+        display:inline-flex; align-items:center; gap:5px; color:var(--green);
+        font-size:0.8rem; font-weight:600; margin-top:6px;
+    }}
+
+    /* 파이프라인 카드 */
+    .pipe-card {{
+        background:var(--surface); border:1px solid var(--border); border-radius:10px;
+        padding:14px 16px; min-height:118px;
+    }}
+    .pipe-card.active {{ border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-tint); }}
+    .pipe-title {{ display:flex; align-items:center; font-size:0.87rem; font-weight:700; margin-bottom:6px; color:var(--text-primary); }}
+    .step-num {{
+        display:inline-flex; align-items:center; justify-content:center;
+        width:20px; height:20px; border-radius:50%; color:#fff;
+        font-size:11px; font-weight:700; margin-right:8px; flex-shrink:0;
+    }}
+    .pipe-desc {{ font-size:0.78rem; color:var(--text-secondary); line-height:1.5; }}
+    .pipe-status {{ margin-top:10px; font-size:0.8rem; font-weight:600; }}
+    .pipe-status.done {{ color:var(--green); }}
+    .pipe-status.active {{ color:var(--brand); }}
+    .pipe-status.pending {{ color:#C7CDD5; }}
+
+    /* 하이라이트 카드 */
+    .h-card {{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; height:100%; }}
+    .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }}
+    .h-icon {{ width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; }}
+    .h-card h3 {{ font-size:0.98rem; margin:0 0 12px; line-height:1.4; color:var(--text-primary); }}
+    .h-row {{
+        display:flex; align-items:center; gap:7px; font-family:'IBM Plex Mono', monospace;
+        font-size:0.8rem; color:var(--text-secondary); margin-bottom:6px;
+    }}
+    .h-reason {{
+        margin-top:10px; background:var(--bg-base); border-radius:6px;
+        padding:9px 10px; font-size:0.78rem; color:var(--text-secondary); line-height:1.5;
+    }}
+    .h-reason b {{ color:var(--text-primary); }}
+    .c-blue .h-icon {{ background:var(--brand-tint); color:var(--brand); }}
+    .c-blue .step-num {{ background:var(--brand); }}
+    .c-green .h-icon {{ background:var(--green-tint); color:var(--green); }}
+    .c-green .step-num {{ background:var(--green); }}
+    .c-amber .h-icon {{ background:var(--amber-tint); color:var(--amber); }}
+    .c-amber .step-num {{ background:var(--amber); }}
+
+    /* 다운로드 행 */
+    .download-row {{
+        background:var(--surface); border:1px solid var(--border); border-radius:10px;
+        padding:16px 20px; display:flex; align-items:center; gap:12px;
+    }}
+
+    /* Streamlit 기본 버튼을 브랜드 컬러로 */
+    div.stButton > button[kind="primary"], div.stDownloadButton > button {{
+        background-color: var(--brand); border-color: var(--brand); font-weight:700;
+    }}
+    div.stButton > button[kind="primary"]:hover, div.stDownloadButton > button:hover {{
+        background-color: var(--brand-dark); border-color: var(--brand-dark);
+    }}
+
+    /* 포커스 링 */
+    .focusable-heading {{ margin-top: 1rem; margin-bottom: 1rem; padding: 4px 8px; border-radius: 6px; color: var(--text-primary); }}
+    .focusable-heading:focus, .focusable-heading:focus-visible {{
+        outline: 3px solid var(--brand) !important; outline-offset: 3px !important;
+    }}
+    .sr-only {{
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -200,38 +229,81 @@ def accessible_alert(message: str, kind: str = "info", icon: str = "") -> None:
     )
 
 
-def accessible_step(message: str, icon: str = "") -> None:
-    """st.status 내부 단계별 안내 문구"""
-    icon_html = f'<span aria-hidden="true">{icon} </span>' if icon else ""
+# ==============================================================================
+# 3. 헤더 UI
+# ==============================================================================
+def render_header() -> None:
+    set_page_language("ko")
     st.markdown(
-        f'<p class="step-text" role="status" aria-live="polite">{icon_html}{message}</p>',
+        '<header class="app-header" role="banner">'
+        '<div class="app-logo" aria-hidden="true">🎬</div>'
+        '<div>'
+        '<h1 class="app-title">뉴스 숏폼 하이라이트 자동 추출기</h1>'
+        '<p class="app-sub">뉴스 음성/영상 파일을 업로드하면 Groq Whisper로 자막과 타임코드를 추출하고, '
+        'Gemini AI가 30~60초 숏폼 구간 및 자막 타이틀을 자동으로 선정합니다.</p>'
+        '</div>'
+        '</header>',
         unsafe_allow_html=True,
+    )
+    accessible_alert(
+        "처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
+        kind="info",
+        icon="💡",
     )
 
 
 # ==============================================================================
-# 3. 헤더 UI (시맨틱 <header> 랜드마크 적용)
+# 4. 파이프라인 스텝 카드 렌더링
 # ==============================================================================
-set_page_language("ko")
-st.markdown(
-    '<header class="title-container" role="banner">'
-    '<h1 class="main-title"><span aria-hidden="true">🎬 </span>뉴스 숏폼 하이라이트 자동 추출기</h1>'
-    '<p class="sub-title">'
-    '뉴스 음성/영상 파일을 업로드하면 Groq Whisper로 자막과 타임코드를 추출하고, '
-    'Gemini AI가 30~60초 숏폼 구간 및 자막 타이틀을 자동으로 선정합니다.'
-    '</p>'
-    '</header>',
-    unsafe_allow_html=True,
-)
-accessible_alert(
-    "처리 결과는 EDIUS 영상 편집 프로그램에서 즉시 사용할 수 있는 EDL 파일로 제공됩니다.",
-    kind="info",
-    icon="💡",
-)
-st.divider()
+PIPELINE_STEPS = [
+    {"title": "파일 처리", "desc": "임시 파일 저장 및 오디오 변환(16kHz Mono) 중..."},
+    {"title": "STT 추출", "desc": "Groq Whisper AI를 활용한 자막 및 타임코드 추출 중..."},
+    {"title": "AI 분석", "desc": "Gemini AI 기반 숏폼(30~60초) 하이라이트 구간 탐색 중..."},
+    {"title": "EDL 생성", "desc": "EDIUS 연동 EDL (CMX 3600) 파일 생성 중..."},
+]
+
+
+def render_pipeline_step_html(index: int, status: str) -> str:
+    """status: 'pending' | 'active' | 'done'"""
+    step = PIPELINE_STEPS[index]
+    num = index + 1
+
+    if status == "done":
+        card_class = ""
+        num_bg = "#10161D"
+        status_html = '<div class="pipe-status done">✓ 완료</div>'
+    elif status == "active":
+        card_class = "active"
+        num_bg = BRAND
+        status_html = '<div class="pipe-status active">● 진행 중</div>'
+    else:
+        card_class = ""
+        num_bg = "#C7CDD5"
+        status_html = '<div class="pipe-status pending">○ 대기 중</div>'
+
+    return f"""
+    <div class="pipe-card {card_class}">
+        <div class="pipe-title"><span class="step-num" style="background:{num_bg};">{num}</span>{step['title']}</div>
+        <div class="pipe-desc">{step['desc']}</div>
+        {status_html}
+    </div>
+    """
+
+
+def render_pipeline(placeholders: list, active_index: int, done: bool = False) -> None:
+    """active_index: 현재 진행 중인 스텝(0-based). done=True면 전체 완료 표시."""
+    for i, ph in enumerate(placeholders):
+        if done or i < active_index:
+            status = "done"
+        elif i == active_index:
+            status = "active"
+        else:
+            status = "pending"
+        ph.markdown(render_pipeline_step_html(i, status), unsafe_allow_html=True)
+
 
 # ==============================================================================
-# 4. 유틸리티 함수
+# 5. 유틸리티 함수 (미디어 처리 / 타임코드 / EDL)
 # ==============================================================================
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
@@ -312,7 +384,7 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
 
 
 # ==============================================================================
-# 5. Whisper STT
+# 6. Whisper STT
 # ==============================================================================
 def extract_segment_data(segment: Any) -> Dict[str, Any]:
     if isinstance(segment, dict):
@@ -341,7 +413,7 @@ def run_whisper_stt(client: Groq, audio_path: str) -> List[Dict[str, Any]]:
 
 
 # ==============================================================================
-# 6. 데이터 보정
+# 7. 데이터 보정
 # ==============================================================================
 def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
     fixed_list = []
@@ -389,7 +461,7 @@ def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.
 
 
 # ==============================================================================
-# 7. Gemini 하이라이트 추출
+# 8. Gemini 하이라이트 추출
 # ==============================================================================
 def run_gemini_highlight_extraction(gemini_api_key: str, segments: list, media_duration: float = 0.0) -> list:
     client = genai.Client(api_key=gemini_api_key)
@@ -456,7 +528,7 @@ def run_gemini_highlight_extraction(gemini_api_key: str, segments: list, media_d
 
 
 # ==============================================================================
-# 8. API 키 가져오기
+# 9. API 키 가져오기
 # ==============================================================================
 def get_api_keys():
     groq_api_key = st.secrets.get("GROQ_API_KEY", None) or os.getenv("GROQ_API_KEY")
@@ -465,10 +537,41 @@ def get_api_keys():
 
 
 # ==============================================================================
-# 9. 메인 애플리케이션
+# 10. 하이라이트 카드 렌더링
+# ==============================================================================
+def render_highlight_card(index: int, highlight: dict) -> None:
+    theme = CARD_THEMES[index % len(CARD_THEMES)]
+    start_sec = float(highlight.get("start_time", 0.0))
+    end_sec = float(highlight.get("end_time", 0.0))
+    duration = round(end_sec - start_sec, 1)
+
+    title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
+    reason = html.escape(str(highlight.get("reason", "-")))
+
+    st.markdown(
+        f"""
+        <article class="h-card {theme['class']}" aria-labelledby="card-title-{index}">
+            <div class="h-top">
+                <span class="step-num">{index + 1}</span>
+                <div class="h-icon" aria-hidden="true">{theme['icon']}</div>
+            </div>
+            <h3 id="card-title-{index}">{title}</h3>
+            <div class="h-row">🕐 {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}</div>
+            <div class="h-row">⏱ {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)</div>
+            <div class="h-reason"><b>선정 이유</b> — {reason}</div>
+        </article>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ==============================================================================
+# 11. 메인 애플리케이션
 # ==============================================================================
 def main():
     groq_api_key, gemini_api_key = get_api_keys()
+
+    render_header()
 
     if not groq_api_key or not gemini_api_key:
         accessible_alert("API 키가 설정되지 않았습니다.", kind="error", icon="⚠️")
@@ -480,36 +583,57 @@ def main():
 
     groq_client = Groq(api_key=groq_api_key)
 
-    st.header("1. 뉴스 파일 업로드")
-    uploaded_file = st.file_uploader(
-        "뉴스 음성 또는 영상 파일을 선택하세요.",
-        type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
-        help="MP3, MP4, TS, MOV 등 다양한 방송 미디어 포맷을 지원합니다.",
-    )
+    st.markdown('<div class="section-title">1. 뉴스 파일 업로드</div>', unsafe_allow_html=True)
+    col_upload, col_file = st.columns([1.2, 1])
+
+    with col_upload:
+        uploaded_file = st.file_uploader(
+            "뉴스 음성 또는 영상 파일을 선택하세요.",
+            type=["mp3", "mp4", "ts", "mov", "m4a", "wav"],
+            help="MP3, MP4, TS, MOV 등 다양한 방송 미디어 포맷을 지원합니다.",
+            label_visibility="collapsed",
+        )
+
+    with col_file:
+        if uploaded_file is not None:
+            safe_filename = html.escape(uploaded_file.name)
+            file_size_mb = uploaded_file.size / (1024 * 1024)
+            st.markdown(
+                f"""
+                <div class="file-card">
+                    <div class="file-icon" aria-hidden="true">▶</div>
+                    <div>
+                        <div class="file-name">{safe_filename}</div>
+                        <div class="file-meta">{file_size_mb:.2f} MB</div>
+                        <div class="file-ok">✓ 파일 선택 완료</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div class="file-card" style="color:var(--text-secondary); font-size:0.85rem;">
+                    파일을 업로드하면 여기에 표시됩니다.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     if uploaded_file is None:
-        accessible_alert(
-            "파일을 업로드하시면 하이라이트 분석 및 EDL 생성을 시작할 수 있습니다.",
-            kind="info",
-            icon="📌",
-        )
         return
-
-    # [개선 3] 파일명 html.escape() 적용으로 XSS 방지 및 DOM 안전성 확보
-    safe_filename = html.escape(uploaded_file.name)
-    file_size_mb = uploaded_file.size / (1024 * 1024)
-    accessible_alert(
-        f"파일 선택 완료: <strong>{safe_filename}</strong> ({file_size_mb:.2f} MB)",
-        kind="success",
-        icon="📁",
-    )
 
     if uploaded_file.size > (1024 * 1024 * 1024):
         accessible_alert("파일 크기가 1GB를 초과합니다. 1GB 이하의 파일을 업로드해 주세요.", kind="error")
         return
 
-    st.header("2. 하이라이트 분석")
+    st.markdown('<div class="section-title">2. 하이라이트 분석</div>', unsafe_allow_html=True)
     start_button = st.button("🚀 하이라이트 추출 및 EDL 생성 시작", type="primary", use_container_width=True)
+
+    pipe_cols = st.columns(4)
+    pipe_placeholders = [c.empty() for c in pipe_cols]
+    render_pipeline(pipe_placeholders, active_index=0)
 
     if not start_button:
         return
@@ -518,36 +642,33 @@ def main():
     processed_audio_path = None
 
     try:
-        with st.status("🎬 뉴스 미디어를 분석하는 중입니다...", expanded=True) as status:
-            accessible_step("임시 파일 저장 및 오디오 변환(16kHz Mono) 중...", icon="1️⃣")
-            suffix = "." + uploaded_file.name.split(".")[-1]
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                chunk_size = 8 * 1024 * 1024
-                while True:
-                    chunk = uploaded_file.read(chunk_size)
-                    if not chunk:
-                        break
-                    tmp.write(chunk)
-                raw_input_path = tmp.name
+        render_pipeline(pipe_placeholders, active_index=0)
+        suffix = "." + uploaded_file.name.split(".")[-1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            chunk_size = 8 * 1024 * 1024
+            while True:
+                chunk = uploaded_file.read(chunk_size)
+                if not chunk:
+                    break
+                tmp.write(chunk)
+            raw_input_path = tmp.name
 
-            media_duration = get_media_duration(raw_input_path)
-            processed_audio_path = prepare_audio_for_groq(raw_input_path)
+        media_duration = get_media_duration(raw_input_path)
+        processed_audio_path = prepare_audio_for_groq(raw_input_path)
+        render_pipeline(pipe_placeholders, active_index=1)
 
-            accessible_step("Groq Whisper AI를 활용한 자막 및 타임코드 추출 중...", icon="2️⃣")
-            segments = run_whisper_stt(groq_client, processed_audio_path)
+        segments = run_whisper_stt(groq_client, processed_audio_path)
 
-            if not segments:
-                raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
+        if not segments:
+            raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
-            accessible_step(f"자막 구간 {len(segments)}개 추출 완료", icon="✓")
+        render_pipeline(pipe_placeholders, active_index=2)
+        highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
 
-            accessible_step("Gemini AI 기반 숏폼(30~60초) 하이라이트 구간 탐색 중...", icon="3️⃣")
-            highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
+        render_pipeline(pipe_placeholders, active_index=3)
+        edl_content = generate_edl(highlights)
 
-            accessible_step("EDIUS 연동 EDL (CMX 3600) 파일 생성 중...", icon="4️⃣")
-            edl_content = generate_edl(highlights)
-
-            status.update(label="✅ 분석 및 EDL 파일 생성이 완료되었습니다!", state="complete", expanded=False)
+        render_pipeline(pipe_placeholders, active_index=3, done=True)
 
         st.markdown(
             '<div class="sr-only" role="status" aria-live="polite">'
@@ -556,55 +677,43 @@ def main():
             unsafe_allow_html=True,
         )
 
-        # [개선 1] focus-visible 포커스 링이 정삼 작동하도록 style="outline:none;" 제거 및 class 추가
         st.markdown(
-            '<h2 id="results-heading" class="focusable-heading" tabindex="-1">3. 추천 숏폼 하이라이트 (3선)</h2>',
+            '<h2 id="results-heading" class="focusable-heading section-title" tabindex="-1">3. 추천 숏폼 하이라이트 (3선)</h2>',
             unsafe_allow_html=True,
         )
         focus_element_by_id("results-heading")
 
-        for index, highlight in enumerate(highlights, 1):
-            start_sec = float(highlight.get("start_time", 0.0))
-            end_sec = float(highlight.get("end_time", 0.0))
-            duration = round(end_sec - start_sec, 1)
+        h_cols = st.columns(3)
+        for index, highlight in enumerate(highlights):
+            with h_cols[index % 3]:
+                render_highlight_card(index, highlight)
 
-            title = html.escape(str(highlight.get("main_title", f"하이라이트 {index}")))
-            subtitle = html.escape(str(highlight.get("sub_title", "-")))
-            reason = html.escape(str(highlight.get("reason", "-")))
-
-            # [개선 2] aria-label을 카드별 고유 타이틀이 포함되도록 동적 구성
-            region_aria_label = html.escape(f"{title} 타임코드 및 재생시간 정보")
-
-            st.markdown(
-                f"""
-                <article class="highlight-card" aria-labelledby="card-title-{index}">
-                    <span class="badge">SHORTFORM #{index}</span>
-                    <h3 id="card-title-{index}" style="margin: 0 0 8px 0; color: #0F172A; font-size: 1.3rem;">{title}</h3>
-                    <p style="margin: 0 0 12px 0; color: #334155; font-weight: 600;">{subtitle}</p>
-                    <div class="time-info" role="region" aria-label="{region_aria_label}">
-                        <span aria-hidden="true">⏱️ </span><strong>타임코드:</strong> {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}<br>
-                        <span aria-hidden="true">⏳ </span><strong>재생시간:</strong> {seconds_to_min_sec(start_sec)} ~ {seconds_to_min_sec(end_sec)} ({duration}초)
-                    </div>
-                    <p style="margin: 8px 0 0 0; font-size: 0.95rem; color: #334155;">
-                        <strong><span aria-hidden="true">💡 </span>선정 이유:</strong> {reason}
-                    </p>
-                </article>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        st.divider()
-        st.header("4. EDIUS 연동 파일 다운로드")
+        st.markdown('<div class="section-title">4. EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
 
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
-        st.download_button(
-            label="💾 EDIUS용 EDL 파일 다운로드",
-            data=edl_content,
-            file_name=edl_filename,
-            mime="text/plain",
-            use_container_width=True,
-        )
+        col_info, col_btn = st.columns([2, 1])
+        with col_info:
+            st.markdown(
+                f"""
+                <div class="download-row">
+                    <div class="file-icon" aria-hidden="true">📄</div>
+                    <div>
+                        <div class="file-name">{html.escape(edl_filename)}</div>
+                        <div class="file-meta">EDIUS용 EDL 파일 (CMX 3600 Format)</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with col_btn:
+            st.download_button(
+                label="💾 EDIUS용 EDL 파일 다운로드",
+                data=edl_content,
+                file_name=edl_filename,
+                mime="text/plain",
+                use_container_width=True,
+            )
 
     except Exception as error:
         accessible_alert("처리 중 오류가 발생했습니다.", kind="error", icon="❌")
