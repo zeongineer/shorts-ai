@@ -45,7 +45,7 @@ _ICON_PATHS = {
     "chart": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
     "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     "timer": '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
-    "chevron-right": '<polyline points="9 18 15 12 9 6"/>', # [수정 2] 파이프라인 화살표 추가
+    "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
 }
 
 def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: float = 2) -> str:
@@ -79,7 +79,6 @@ st.markdown(
     .stApp {{ background-color: var(--bg-base); }}
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
-    /* [수정 1] 메인 콘텐츠 레이아웃 제한 (1200px) */
     .block-container {{
         max-width: 1200px !important;
         margin: 0 auto;
@@ -107,7 +106,6 @@ st.markdown(
         letter-spacing:-0.3px; display: flex; align-items: center; gap: 8px;
     }}
 
-    /* [수정 2] 파이프라인 모듈화 (Flow 시각적 연결) */
     .pipeline-container {{
         display: flex; align-items: center; gap: 12px; margin: 24px 0;
         background: var(--surface); padding: 16px 24px; border-radius: 12px;
@@ -137,14 +135,12 @@ st.markdown(
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
     .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
     
-    /* [수정 3] 완벽한 원형의 숫자 배지 */
     .step-num {{ 
         display: inline-flex; align-items: center; justify-content: center;
         width: 26px; height: 26px; border-radius: 50%;
         background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.85rem;
     }}
 
-    /* [수정 4] 타임코드 영역을 회색 블록으로 묶어 여백 응집력 향상 */
     .h-row {{
         background: var(--gray-light); padding: 8px 12px; border-radius: 6px;
         display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono', monospace;
@@ -165,6 +161,7 @@ st.markdown(
     .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
     .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
     
+    /* 다운로드 버튼 스타일 */
     .dl-btn {{
         background-color: var(--brand); color: #FFFFFF !important;
         font-weight: 600; font-size: 0.95rem; padding: 0.6rem 1.5rem;
@@ -173,6 +170,29 @@ st.markdown(
         border: 1px solid var(--brand);
     }}
     .dl-btn:hover {{ background-color: var(--brand-dark); border-color: var(--brand-dark); transform: translateY(-1px); }}
+    
+    /* [수정] Streamlit 기본 Primary 버튼을 dl-btn 스타일과 동일하게 오버라이딩 */
+    button[kind="primary"] {{
+        background-color: var(--brand) !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        padding: 0.6rem 1.5rem !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--brand) !important;
+        transition: all 0.2s ease !important;
+        min-height: 48px;
+    }}
+    button[kind="primary"]:hover {{
+        background-color: var(--brand-dark) !important;
+        border-color: var(--brand-dark) !important;
+        transform: translateY(-1px) !important;
+    }}
+    button[kind="primary"]:disabled {{
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -216,7 +236,6 @@ PIPELINE_STEPS = [
     {"title": "EDL 패키징"},
 ]
 
-# [수정 2] 분리되어 있던 컬럼들을 단일 컨테이너 내부의 프로세스 플로우로 통합
 def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
     html_str = '<div class="pipeline-container">'
     for i, step in enumerate(PIPELINE_STEPS):
@@ -233,7 +252,6 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
                 {status_html}
             </div>
         """
-        # 단계 사이 화살표 삽입
         if i < len(PIPELINE_STEPS) - 1:
             html_str += f'<div class="pipe-arrow">{icon("chevron-right", 24)}</div>'
             
@@ -301,19 +319,23 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 def main():
     render_header()
 
-    # [수정 3] 아마추어 느낌을 주는 이모지 제거 및 텍스트 위계 설정
     st.markdown('<div class="section-title">미디어 소스 업로드</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
+    
+    # [수정] 파일 업로더와 시작 버튼을 나란히 배치하기 위해 columns 활용 (3:1 비율 및 하단 정렬)
+    upload_col, btn_col = st.columns([3, 1], vertical_alignment="bottom")
+    
+    with upload_col:
+        uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
+        
+    with btn_col:
+        # [수정] 파일이 업로드되지 않으면 버튼 비활성화 (disabled) 적용
+        start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True, disabled=not uploaded_file)
 
     if not uploaded_file:
         return
     
-    # [수정 1] 액션 버튼 과도한 확장 방지 (고정폭 컨테이너 혹은 기본 사이즈 적용)
-    start_button = st.button("추출 및 EDL 생성 시작", type="primary")
-
     st.markdown('<div class="section-title">프로세스 현황</div>', unsafe_allow_html=True)
     
-    # [수정 2] 단일 통합 플레이스홀더 사용
     pipe_placeholder = st.empty()
     render_pipeline(pipe_placeholder, active_index=-1)
 
