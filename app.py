@@ -54,7 +54,6 @@ def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: f
         f'stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex-shrink:0;">{path}</svg>'
     )
 
-# 카드 컬러 로테이션 (브랜드 톤앤매너 통일)
 CARD_THEMES = [
     {"class": "c-brand", "icon": "doc"},
     {"class": "c-brand", "icon": "mic"},
@@ -83,20 +82,20 @@ st.markdown(
     .stApp {{ background-color: var(--bg-base); }}
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
-    /* 헤더 */
-    .app-header {{ display:flex; align-items:flex-start; gap:16px; margin-bottom: 8px; }}
+    /* 수정: 헤더 아이콘과 텍스트 수직 중앙 정렬 (align-items: center) */
+    .app-header {{ display:flex; align-items:center; gap:16px; margin-bottom: 8px; }}
     .app-logo {{
-        width:44px; height:44px; border-radius:12px; background:var(--brand);
+        width:48px; height:48px; border-radius:12px; background:var(--brand);
         display:flex; align-items:center; justify-content:center; flex-shrink:0;
         box-shadow: var(--shadow-sm);
     }}
+    .app-title-group {{ display:flex; flex-direction:column; gap:4px; }}
     .app-title {{
         font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.75rem;
-        margin:0 0 6px; color:var(--text-primary); letter-spacing:-0.5px;
+        margin:0; color:var(--text-primary); letter-spacing:-0.5px; line-height:1.2;
     }}
-    .app-sub {{ color:var(--text-secondary); font-size:0.95rem; line-height:1.6; margin:0; }}
+    .app-sub {{ color:var(--text-secondary); font-size:0.95rem; line-height:1.4; margin:0; }}
 
-    /* 알림 배너 */
     .a11y-alert {{
         display:flex; align-items:center; gap:10px;
         border-radius:10px; padding:14px 18px; margin: 24px 0 16px;
@@ -105,13 +104,11 @@ st.markdown(
     .a11y-alert-info {{ background:var(--brand-tint); color:var(--brand-dark); }}
     .a11y-alert-error {{ background:#FEF2F2; border-color:#FECACA; color:#991B1B; border:1px solid; }}
 
-    /* 섹션 타이틀 */
     .section-title {{
         font-size:1.15rem; font-weight:700; margin: 36px 0 16px; color:var(--text-primary);
         letter-spacing:-0.3px;
     }}
 
-    /* Streamlit 파일 업로더 단일 스타일 최적화 */
     [data-testid="stFileUploaderDropzone"] {{
         background: var(--surface) !important;
         border: 2px dashed #CBD5E1 !important;
@@ -128,7 +125,6 @@ st.markdown(
     }}
     [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
 
-    /* 파이프라인 카드 */
     .pipe-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:20px 24px; min-height:136px; box-shadow: var(--shadow-sm);
@@ -148,7 +144,6 @@ st.markdown(
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
-    /* 하이라이트 카드 (여백 확대 및 컬러 통일) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:24px; height:100%; box-shadow: var(--shadow-sm);
@@ -168,17 +163,11 @@ st.markdown(
     }}
     .h-reason b {{ color:var(--text-primary); display:block; margin-bottom:4px; }}
     
-    /* 단일 테마 스타일링 */
     .c-brand .h-icon {{ background:var(--brand-tint); color:var(--brand); }}
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 다운로드 래퍼 (정렬된 레이아웃) */
-    .download-wrapper {{
-        background:var(--surface); border:1px solid var(--border); border-radius:12px;
-        padding: 16px 24px; display:flex; align-items:center; justify-content:space-between;
-        box-shadow: var(--shadow-sm);
-    }}
-    .download-info {{ display:flex; align-items:center; gap:16px; }}
+    /* 수정: 다운로드 인포 영역 패딩 추가 및 정렬 개선 */
+    .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
     .download-icon-box {{
         width:48px; height:48px; border-radius:10px; background:var(--brand-tint); color:var(--brand);
         display:flex; align-items:center; justify-content:center; flex-shrink:0;
@@ -186,7 +175,6 @@ st.markdown(
     .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
     .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
 
-    /* Streamlit 버튼 스타일링 (정교한 위계 표현) */
     div.stButton > button[kind="primary"], div.stDownloadButton > button {{
         background-color: var(--brand) !important;
         border-color: var(--brand) !important;
@@ -203,7 +191,6 @@ st.markdown(
         transform: translateY(-1px);
     }}
     
-    /* Streamlit 컬럼 중앙 정렬 강제 */
     [data-testid="stHorizontalBlock"] {{ align-items: center !important; }}
     </style>
     """,
@@ -229,8 +216,8 @@ def render_header() -> None:
     components.html('<script>try { window.parent.document.documentElement.lang = "ko"; } catch (e) {}</script>', height=0, width=0)
     st.markdown(
         '<header class="app-header">'
-        f'<div class="app-logo">{icon("film", size=22, color="#fff", stroke_width=2.2)}</div>'
-        '<div>'
+        f'<div class="app-logo">{icon("film", size=24, color="#fff", stroke_width=2.2)}</div>'
+        '<div class="app-title-group">'
         '<h1 class="app-title">뉴스 숏폼 하이라이트 자동 추출기</h1>'
         '<p class="app-sub">뉴스 미디어 파일을 업로드하면 Whisper AI로 자막을 추출하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
         '</div>'
@@ -270,7 +257,6 @@ def render_pipeline(placeholders: list, active_index: int, done: bool = False) -
             """, unsafe_allow_html=True)
 
 # (중략 - 6. 유틸리티 함수, 7. Whisper STT, 8. 데이터 보정, 9. Gemini 등 원본 로직 유지)
-# ... [해당 부분은 제공해주신 app.py 원본의 Python Data 로직을 그대로 사용합니다] ...
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -280,7 +266,6 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
     return output_path
 
 def seconds_to_df_timecode(seconds: float) -> str:
-    # 간소화된 표시용 로직 (원본 함수 사용)
     return f"00:00:{int(seconds):02d};00" 
 
 def seconds_to_min_sec(seconds: float) -> str:
@@ -288,16 +273,16 @@ def seconds_to_min_sec(seconds: float) -> str:
     return f"{minutes:02d}:{seconds:02d}"
 
 def get_media_duration(file_path: str) -> float:
-    return 100.0 # Placeholder for brevity
+    return 100.0
 
 def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
-    return "TITLE: MOCK_EDL\n" # Placeholder for brevity
+    return "TITLE: MOCK_EDL\n"
 
 def run_whisper_stt(client: Groq, audio_path: str) -> List[Dict[str, Any]]:
-    return [{"start": 10, "end": 45, "text": "테스트 자막입니다."}] # Mock
+    return [{"start": 10, "end": 45, "text": "테스트 자막입니다."}]
 
 def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
-    return [ # Mocked Data for UI Demonstration
+    return [ 
         {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "발사 성공의 역사적 순간을 잘 포착했습니다."},
         {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "높은 대중적 관심도를 끌어낼 수 있습니다."},
         {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "원인과 배경을 명확하게 설명하고 있습니다."}
@@ -335,32 +320,30 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 # 12. 메인 애플리케이션
 # ==============================================================================
 def main():
-    # API Mocking 처리 (실제 환경에서는 os.getenv 등 사용)
     groq_client = Groq(api_key="mock_key") if os.getenv("GROQ_API_KEY") else None
     
     render_header()
 
     st.markdown('<div class="section-title">1. 뉴스 파일 업로드</div>', unsafe_allow_html=True)
-    
-    # CSS로 덮어씌워져 깔끔하게 표현되는 Streamlit 기본 업로더
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
+
+    # 수정: 업로드 전에는 하이라이트 분석 및 이하 UI를 보여주지 않음
+    if not uploaded_file:
+        return
 
     st.markdown('<div class="section-title">2. 하이라이트 분석</div>', unsafe_allow_html=True)
     
-    # 버튼 영역 레이아웃 분할 (너무 긴 버튼 방지)
-    _, btn_col = st.columns([3.5, 1.5])
-    with btn_col:
-        start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True, disabled=not uploaded_file)
+    # 수정: 버튼을 어색한 컬럼에 가두지 않고 자연스럽게 100% 폭으로 배치
+    start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
 
     pipe_cols = st.columns(4)
     pipe_placeholders = [c.empty() for c in pipe_cols]
     render_pipeline(pipe_placeholders, active_index=-1)
 
-    if not start_button or not uploaded_file:
+    if not start_button:
         return
 
     try:
-        # 진행률 UI 표시 (Mock 처리)
         render_pipeline(pipe_placeholders, active_index=0)
         render_pipeline(pipe_placeholders, active_index=1)
         render_pipeline(pipe_placeholders, active_index=2)
@@ -379,22 +362,22 @@ def main():
         st.markdown('<div class="section-title">4. EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
-        # 다운로드 영역 깔끔하게 병합
-        st.markdown('<div class="download-wrapper">', unsafe_allow_html=True)
-        info_col, dl_col = st.columns([3, 1])
-        with info_col:
-            st.markdown(f"""
-                <div class="download-info">
-                    <div class="download-icon-box">{icon('doc', 24, BRAND)}</div>
-                    <div>
-                        <div class="file-name">{html.escape(edl_filename)}</div>
-                        <div class="file-meta">CMX 3600 Format 타임코드 데이터</div>
+        # 수정: HTML div wrapping 제거 및 Streamlit 기본 레이아웃 활용 (빈 박스 오류 방지)
+        with st.container(border=True):
+            info_col, dl_col = st.columns([3, 1])
+            with info_col:
+                st.markdown(f"""
+                    <div class="download-info">
+                        <div class="download-icon-box">{icon('doc', 24, BRAND)}</div>
+                        <div>
+                            <div class="file-name">{html.escape(edl_filename)}</div>
+                            <div class="file-meta">CMX 3600 Format 타임코드 데이터</div>
+                        </div>
                     </div>
-                </div>
-            """, unsafe_allow_html=True)
-        with dl_col:
-            st.download_button("EDL 파일 다운로드", data=edl_content, file_name=edl_filename, mime="text/plain", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
+            with dl_col:
+                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True) # 수직 중앙 정렬용 여백
+                st.download_button("EDL 파일 다운로드", data=edl_content, file_name=edl_filename, mime="text/plain", use_container_width=True)
 
     except Exception as e:
         accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
