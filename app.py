@@ -98,9 +98,9 @@ st.markdown(
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
     .block-container {{
-        max-width: 1350px !important;
+        max-width: 1250px !important;
         margin: 0 auto;
-        padding-top: 2.5rem !important;
+        padding-top: 3rem !important;
     }}
 
     div[data-testid="stVerticalBlock"] {{ gap: 0.75rem !important; }}
@@ -156,9 +156,9 @@ st.markdown(
 
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:14px;
-        padding:16px 20px; box-shadow: var(--shadow-md);
+        padding:16px 18px; box-shadow: var(--shadow-md);
         display:flex; flex-direction:column; gap:8px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; }}
     .h-card h3 {{ font-size:1.0rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
@@ -176,22 +176,22 @@ st.markdown(
     .tc-block {{ display: flex; align-items: center; gap: 6px; }}
     
     .h-reason {{
-        background:var(--brand-tint); border-radius:8px; border: none;
+        background:var(--brand-tint); border-radius:6px; border: none;
         padding:10px 14px; font-size:0.83rem; color:var(--text-secondary); line-height:1.4;
     }}
     .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:2px; font-weight: 600; }}
 
-    /* 우측 EDL 패널 박스 스타일 */
-    .edl-panel-box {{
+    .panel-box {{
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: 16px;
         padding: 24px;
         box-shadow: var(--shadow-md);
+        position: sticky;
+        top: 20px;
     }}
-    .edl-panel-title {{
-        font-family: 'Space Grotesk', sans-serif;
-        font-size: 1.2rem;
+    .panel-title {{
+        font-size: 1.15rem;
         font-weight: 700;
         color: var(--text-primary);
         margin-bottom: 16px;
@@ -202,14 +202,22 @@ st.markdown(
     .kv-row {{
         display: flex;
         justify-content: space-between;
-        align-items: center;
         padding: 8px 0;
         border-bottom: 1px dashed var(--border);
-        font-size: 0.9rem;
+        font-size: 0.92rem;
     }}
     .kv-key {{ color: var(--text-secondary); font-weight: 500; }}
     .kv-val {{ color: var(--text-primary); font-weight: 700; font-family: 'IBM Plex Mono', monospace; }}
 
+    .dl-btn {{
+        background-color: var(--brand); color: #FFFFFF !important;
+        font-weight: 600; font-size: 0.95rem; padding: 0.7rem 1.5rem;
+        border-radius: 10px; text-decoration: none !important;
+        display: block; text-align: center; transition: all 0.2s ease;
+        border: 1px solid var(--brand); margin-top: 16px;
+    }}
+    .dl-btn:hover {{ background-color: var(--brand-dark); border-color: var(--brand-dark); transform: translateY(-1px); }}
+    
     button[kind="primary"] {{
         background-color: var(--brand) !important;
         color: #FFFFFF !important;
@@ -259,7 +267,7 @@ def render_header() -> None:
         '</header>',
         unsafe_allow_html=True,
     )
-    accessible_alert("원하는 주제 구간을 선택(체크)한 뒤 우측 패널에서 EDL 파일 생성 버튼을 눌러주세요.", kind="info", icon_name="bulb")
+    accessible_alert("원하는 주제 구간을 선택(체크)한 뒤 우측 패널에서 EDL 파일을 생성해주세요.", kind="info", icon_name="bulb")
 
 # ==============================================================================
 # 4. 파이프라인 및 방송 데이터 포맷팅
@@ -509,7 +517,7 @@ def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_du
 1. 영상의 처음부터 끝까지 전체 흐름이 누락되는 구간 없이 연속적인 주제별 구간들로 나눈다.
 2. 각 구간은 의미가 통하는 하나의 주제 단위여야 하며, 시작 시간과 종료 시간을 정확히 명시한다.
 3. 영상 총 길이는 약 {media_duration:.2f}초이다.
-4. 각 주제별로 명확한 제목(main_title), 부제목/카테고리(sub_title), 임팩트 점수(impact_score, 1~100 사이의 정수), 요약 설명(reason)을 작성한다.
+4. 각 주제별로 명확한 제목과 요약 설명을 작성한다.
 
 [뉴스 자막 데이터]
 {formatted_transcript}
@@ -522,14 +530,13 @@ def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_du
             "items": {
                 "type": "OBJECT",
                 "properties": {
-                    "main_title": {"type": "STRING", "description": "주제 추천 제목 (20자 이내)"},
+                    "main_title": {"type": "STRING", "description": "주제/리포트 제목 (20자 이내)"},
                     "sub_title": {"type": "STRING", "description": "카테고리/핵심 요약 (30자 이내)"},
-                    "impact_score": {"type": "INTEGER", "description": "임팩트 점수 (1~100)"},
                     "start_time": {"type": "NUMBER", "description": "구간 시작 시간(초)"},
                     "end_time": {"type": "NUMBER", "description": "구간 종료 시간(초)"},
-                    "reason": {"type": "STRING", "description": "자막 미리보기 및 해당 주제 설명"},
+                    "reason": {"type": "STRING", "description": "해당 주제 요약 및 설명"},
                 },
-                "required": ["main_title", "sub_title", "impact_score", "start_time", "end_time", "reason"],
+                "required": ["main_title", "sub_title", "start_time", "end_time", "reason"],
             },
         },
         temperature=0.2,
@@ -626,116 +633,97 @@ def main():
                 except OSError:
                     pass
 
-    # ==============================================================================
-    # 6. 분할 및 분석 완료 후 화면: 가로 2분할 레이아웃 적용
-    # ==============================================================================
     if "topics" in st.session_state and st.session_state["topics"]:
         render_pipeline(pipe_placeholder, active_index=3, done=True)
         topics = st.session_state["topics"]
         video_fps = st.session_state.get("video_fps", 29.97)
         source_filename = st.session_state.get("source_filename", "source.mp4")
 
-        # 7:3 또는 8:4 비율의 가로 2분할 레이아웃 (col_left : col_right)
-        col_left, col_right = st.columns([7, 3], gap="large")
+        # 1. 화면을 가로로 2분할 (좌측: 토픽 리스트, 우측: EDL 파일 생성 패널) 비율 약 7:3
+        left_col, right_col = st.columns([7, 3], gap="large")
 
-        # --------------------------------------------------------------------------
-        # [좌측 영역]: 토픽 리스트 패널
-        # --------------------------------------------------------------------------
-        with col_left:
-            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px; color:var(--text-primary);">토픽 리스트 (구간 선택)</p>', unsafe_allow_html=True)
+        with left_col:
+            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px; color:var(--text-primary);">토픽 리스트</p>', unsafe_allow_html=True)
             
             selected_indices = []
             for index, topic in enumerate(topics):
                 start_sec = float(topic.get("start_time", 0.0))
                 end_sec = float(topic.get("end_time", 0.0))
                 duration = round(end_sec - start_sec, 1)
-                
-                num_str = f"#{index + 1:02d}"
                 title = html.escape(str(topic.get("main_title", f"주제 {index + 1}")))
                 reason = html.escape(str(topic.get("reason", "-")))
-                impact = topic.get("impact_score", 80)
-                tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)}"
-                length_str = f"{duration}초"
+                tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)} ({duration}초)"
 
-                # 카드 내 체크박스 및 상세 정보 구성
-                with st.container():
-                    is_selected = st.checkbox(
-                        f"**{num_str}** {title}",
-                        value=True,
-                        key=f"topic_chk_{index}"
-                    )
-                    
+                # 2. 좌측 영역: 카드 형태로 체크박스, 번호, 구간, 길이, 제목, 요약 내용 반영
+                card_col1, card_col2 = st.columns([0.08, 0.92])
+                with card_col1:
+                    is_selected = st.checkbox("선택", value=True, key=f"topic_chk_{index}", label_visibility="collapsed")
+                with card_col2:
                     st.markdown(
-                        f'<div class="h-card">'
-                        f'<div class="h-row" style="justify-content: space-between;">'
-                        f'<div class="tc-block">{icon("clock", 13, "currentColor")} 구간: <b>{tc_str}</b></div>'
-                        f'<div>길이: <b>{length_str}</b> | 임팩트 점수: <span style="color:var(--brand); font-weight:700;">{impact}점</span></div>'
+                        f'<article class="h-card">'
+                        f'<div class="h-top">'
+                        f'<div style="display:flex; align-items:center; gap:8px;">'
+                        f'<span class="step-num">{index + 1}</span>'
+                        f'<h3>{title}</h3>'
+                        f'</div>'
+                        f'</div>'
+                        f'<div class="h-row">'
+                        f'<div class="tc-block">{icon("clock", 14, "currentColor")} 구간: {tc_str}</div>'
                         f'</div>'
                         f'<div class="h-reason"><b>자막 미리보기 / 요약</b>{reason}</div>'
-                        f'</div>',
+                        f'</article>',
                         unsafe_allow_html=True,
                     )
                 
                 if is_selected:
                     selected_indices.append(index)
 
-        # --------------------------------------------------------------------------
-        # [우측 영역]: EDL 파일 생성 패널
-        # --------------------------------------------------------------------------
-        with col_right:
-            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px; color:var(--text-primary);">EDL 패키징</p>', unsafe_allow_html=True)
-            
-            # 총 러닝타임 계산
-            total_duration_sec = sum(
-                float(topics[i].get("end_time", 0.0)) - float(topics[i].get("start_time", 0.0))
-                for i in selected_indices
-            )
-            total_mins = int(total_duration_sec // 60)
-            total_secs = int(total_duration_sec % 60)
-            total_running_time_str = f"{total_mins:02d}:{total_secs:02d}"
-
-            # 우측 패널 카드 박스 컨테이너
+        with right_col:
+            # 3. 우측 영역: EDL 파일 생성 패널 (st.container 박스 스타일 및 정보성 텍스트 키-값 정렬)
             with st.container():
                 st.markdown(
-                    f'<div class="edl-panel-box">'
-                    f'<div class="edl-panel-title">{icon("doc", 20, BRAND)} EDL 파일 생성</div>'
-                    f'<div class="kv-row"><span class="kv-key">내보낼 항목</span><span class="kv-val">{len(selected_indices)}개 클립</span></div>'
-                    f'<div class="kv-row"><span class="kv-key">총 러닝타임</span><span class="kv-val">{total_running_time_str}</span></div>'
-                    f'<div class="kv-row"><span class="kv-key">타임코드 포맷</span><span class="kv-val">CMX 3600</span></div>'
-                    f'</div>',
+                    f'<div class="panel-box">'
+                    f'<div class="panel-title">{icon("doc", 20, BRAND)} EDL 파일 생성</div>',
                     unsafe_allow_html=True
                 )
 
-            st.markdown('<div style="margin-top: 12px;"></div>', unsafe_allow_html=True)
-            
-            # 파일명 입력 텍스트 박스
-            default_edl_name = f"{os.path.splitext(source_filename)[0]}_selected_split.edl"
-            user_filename = st.text_input("저장할 파일명 입력", value=default_edl_name)
-
-            if not selected_indices:
-                st.info("💡 좌측 리스트에서 내보낼 주제 카드를 최소 1개 이상 선택해주세요.")
-                st.button("EDL 파일 생성", type="primary", disabled=True, use_container_width=True)
-            else:
-                st.info(f"💡 총 {len(selected_indices)}개의 주제 구간이 선택되었습니다. 아래 버튼을 눌러 EDL을 다운로드하세요.")
-                
-                # 선택된 구간 필터링 후 EDL 문자열 생성
                 filtered_topics = [topics[i] for i in selected_indices]
-                edl_content = generate_edl(filtered_topics, source_filename=source_filename, fps=video_fps)
+                total_duration_sec = sum(float(t.get("end_time", 0)) - float(t.get("start_time", 0)) for t in filtered_topics)
                 
-                safe_filename = user_filename.strip() if user_filename.strip() else default_edl_name
-                if not safe_endswith := safe_filename.endswith(".edl"):
+                mm = int(total_duration_sec // 60)
+                ss = int(total_duration_sec % 60)
+                runtime_str = f"{mm:02d}:{ss:02d}"
+
+                st.markdown(
+                    f'<div class="kv-row"><span class="kv-key">내보낼 항목</span><span class="kv-val">{len(selected_indices)}개 클립</span></div>'
+                    f'<div class="kv-row"><span class="kv-key">총 러닝타임</span><span class="kv-val">{runtime_str}</span></div>'
+                    f'<div class="kv-row" style="border:none;"><span class="kv-key">타임베이스</span><span class="kv-val">{video_fps} FPS</span></div>',
+                    unsafe_allow_html=True
+                )
+
+                default_edl_name = f"{os.path.splitext(source_filename)[0]}_selected.edl"
+                
+                # 구문 오류(SyntaxError) 수정 완료: := 대입 표현식 대신 안전하게 일반 변수 할당 방식 처리
+                safe_filename = st.text_input("파일 명 입력", value=default_edl_name)
+                if not safe_filename.endswith(".edl"):
                     safe_filename += ".edl"
 
-                b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
-                href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
+                st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+                st.info("체크박스로 선택한 구간만 모아 타임코드 표준(CMX 3600) 기반의 EDL 파일로 패키징합니다.")
 
-                # 커스텀 스타일이 적용된 다운로드 버튼 연동 렌더링
-                st.markdown(
-                    f'<a href="{href}" download="{html.escape(safe_filename)}" style="text-decoration: none;">'
-                    f'<button kind="primary" style="width: 100%; cursor: pointer;">📥 EDL 파일 생성 및 다운로드</button>'
-                    f'</a>',
-                    unsafe_allow_html=True
-                )
+                if not selected_indices:
+                    st.warning("최소 1개 이상의 주제를 선택해주세요.")
+                else:
+                    edl_content = generate_edl(filtered_topics, source_filename=source_filename, fps=video_fps)
+                    b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
+                    href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
+
+                    st.markdown(
+                        f'<a href="{href}" download="{html.escape(safe_filename)}" class="dl-btn">EDL 파일 생성 및 다운로드</a>',
+                        unsafe_allow_html=True
+                    )
+                
+                st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
