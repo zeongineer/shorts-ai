@@ -160,13 +160,18 @@ st.markdown(
     
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 다운로드 박스 래퍼 스타일을 다른 카드와 동일하게 통일 */
+    /* 다운로드 박스 래퍼 스타일을 하이라이트 카드(.h-card)와 동일하게 통일 (패딩 유지, 마우스 오버 효과 추가) */
     [data-testid="stVerticalBlockBorderWrapper"] {{
-        border-radius: 12px !important;
+        background: var(--surface) !important;
         border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
         box-shadow: var(--shadow-sm) !important;
-        background-color: var(--surface) !important;
-        padding: 4px 8px !important;
+        padding: 4px 8px !important; /* 패딩 유지 */
+        transition: all 0.2s ease !important;
+    }}
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {{
+        border-color: var(--brand) !important;
+        box-shadow: var(--shadow-md) !important;
     }}
 
     .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
