@@ -6,7 +6,6 @@ import tempfile
 import base64
 from typing import Any, Dict, List
 import json
-import pandas as pd
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -32,6 +31,8 @@ BRAND_TINT = "#EFF6FF"
 
 
 def _get_secret_or_env(key: str) -> str:
+    """GitHub에 커밋되는 .env 대신, 배포 환경(Streamlit Community Cloud)에서는
+    st.secrets(Settings > Secrets)를 우선 사용합니다. 로컬 개발 시에만 .env로 폴백합니다."""
     try:
         secret_value = st.secrets.get(key, None)
     except Exception:
@@ -97,9 +98,9 @@ st.markdown(
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
     .block-container {{
-        max-width: 1300px !important;
+        max-width: 1350px !important;
         margin: 0 auto;
-        padding-top: 3rem !important;
+        padding-top: 2.5rem !important;
     }}
 
     div[data-testid="stVerticalBlock"] {{ gap: 0.75rem !important; }}
@@ -153,15 +154,62 @@ st.markdown(
     .step-node.active .step-circle {{ border-color: var(--brand); color: var(--brand); box-shadow: 0 0 0 4px var(--brand-tint); }}
     .step-node.active .step-label {{ color: var(--brand); }}
 
-    .dl-btn {{
-        background-color: var(--brand); color: #FFFFFF !important;
-        font-weight: 600; font-size: 0.95rem; padding: 0.6rem 1.5rem;
-        border-radius: 8px; text-decoration: none !important;
-        display: block; text-align: center; transition: all 0.2s ease;
-        border: 1px solid var(--brand);
+    .h-card {{
+        background:var(--surface); border:1px solid var(--border); border-radius:14px;
+        padding:16px 20px; box-shadow: var(--shadow-md);
+        display:flex; flex-direction:column; gap:8px;
+        margin-bottom: 10px;
     }}
-    .dl-btn:hover {{ background-color: var(--brand-dark); border-color: var(--brand-dark); transform: translateY(-1px); }}
+    .h-top {{ display:flex; justify-content:space-between; align-items:center; }}
+    .h-card h3 {{ font-size:1.0rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
     
+    .step-num {{ 
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.75rem;
+    }}
+
+    .h-row {{
+        display:flex; align-items:center; gap:12px; font-family:'IBM Plex Mono', monospace;
+        font-size:0.82rem; color:var(--text-secondary);
+    }}
+    .tc-block {{ display: flex; align-items: center; gap: 6px; }}
+    
+    .h-reason {{
+        background:var(--brand-tint); border-radius:8px; border: none;
+        padding:10px 14px; font-size:0.83rem; color:var(--text-secondary); line-height:1.4;
+    }}
+    .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:2px; font-weight: 600; }}
+
+    /* 우측 EDL 패널 박스 스타일 */
+    .edl-panel-box {{
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: var(--shadow-md);
+    }}
+    .edl-panel-title {{
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }}
+    .kv-row {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px dashed var(--border);
+        font-size: 0.9rem;
+    }}
+    .kv-key {{ color: var(--text-secondary); font-weight: 500; }}
+    .kv-val {{ color: var(--text-primary); font-weight: 700; font-family: 'IBM Plex Mono', monospace; }}
+
     button[kind="primary"] {{
         background-color: var(--brand) !important;
         color: #FFFFFF !important;
@@ -211,7 +259,7 @@ def render_header() -> None:
         '</header>',
         unsafe_allow_html=True,
     )
-    accessible_alert("원하는 주제 구간을 선택(체크)한 뒤 우측 패널에서 EDL 파일을 생성해주세요.", kind="info", icon_name="bulb")
+    accessible_alert("원하는 주제 구간을 선택(체크)한 뒤 우측 패널에서 EDL 파일 생성 버튼을 눌러주세요.", kind="info", icon_name="bulb")
 
 # ==============================================================================
 # 4. 파이프라인 및 방송 데이터 포맷팅
@@ -248,6 +296,7 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
 def _is_ntsc_rate(fps: float) -> bool:
     return any(abs(fps - r) < 0.05 for r in (23.976, 29.97, 59.94))
 
+
 def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
     seconds = max(0.0, float(seconds))
     drop_frames = 2 if nominal_fps == 30 else 4
@@ -269,6 +318,7 @@ def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
     hh = total_minutes // 60
     return f"{hh:02d}:{mm:02d}:{ss:02d};{ff:02d}"
 
+
 def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
     seconds = max(0.0, float(seconds))
     if _is_ntsc_rate(fps):
@@ -283,10 +333,12 @@ def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
     ff = total_frames % nominal
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
+
 def _derive_reel_name(filename: str) -> str:
     base = os.path.splitext(filename)[0]
     base = re.sub(r"[^A-Za-z0-9]", "", base).upper()
     return base[:8] if base else "REEL001"
+
 
 def generate_edl(highlights: list, source_filename: str = "source.mp4", fps: float = 29.97) -> str:
     is_df = _is_ntsc_rate(fps)
@@ -326,6 +378,7 @@ def get_media_duration(file_path: str) -> float:
     except (subprocess.CalledProcessError, ValueError):
         return 0.0
 
+
 def get_video_fps(file_path: str) -> float:
     cmd = [
         "ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -346,6 +399,7 @@ def get_video_fps(file_path: str) -> float:
     except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
         return 29.97
 
+
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -364,6 +418,7 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
             os.remove(output_path)
         error_message = e.stderr.decode("utf-8", errors="ignore")
         raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
+
 
 def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> list:
     suffix = os.path.splitext(file_name)[1] or ".mp4"
@@ -405,6 +460,7 @@ def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> 
                 except OSError:
                     pass
 
+
 def sanitize_and_fix_topics(raw_topics: list, media_duration: float = 0.0) -> list:
     fixed_list = []
     if not isinstance(raw_topics, list):
@@ -436,9 +492,10 @@ def sanitize_and_fix_topics(raw_topics: list, media_duration: float = 0.0) -> li
     fixed_list.sort(key=lambda x: x["start_time"])
     return fixed_list
 
+
 def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
     client = genai.Client(api_key=api_key)
-    preferred_models = ["gemini-2.5-flash", "gemini-3.5-flash"]
+    preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
 
     formatted_transcript = "\n".join(
         f"[{seg['start']:.2f}s ~ {seg['end']:.2f}s] {seg['text']}" for seg in transcript_segments
@@ -452,7 +509,7 @@ def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_du
 1. 영상의 처음부터 끝까지 전체 흐름이 누락되는 구간 없이 연속적인 주제별 구간들로 나눈다.
 2. 각 구간은 의미가 통하는 하나의 주제 단위여야 하며, 시작 시간과 종료 시간을 정확히 명시한다.
 3. 영상 총 길이는 약 {media_duration:.2f}초이다.
-4. 각 주제별로 명확한 제목, 요약 설명 및 임팩트 점수(80~98점 사이의 정수)를 부여한다.
+4. 각 주제별로 명확한 제목(main_title), 부제목/카테고리(sub_title), 임팩트 점수(impact_score, 1~100 사이의 정수), 요약 설명(reason)을 작성한다.
 
 [뉴스 자막 데이터]
 {formatted_transcript}
@@ -465,14 +522,14 @@ def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_du
             "items": {
                 "type": "OBJECT",
                 "properties": {
-                    "main_title": {"type": "STRING", "description": "주제/리포트 제목 (20자 이내)"},
+                    "main_title": {"type": "STRING", "description": "주제 추천 제목 (20자 이내)"},
                     "sub_title": {"type": "STRING", "description": "카테고리/핵심 요약 (30자 이내)"},
+                    "impact_score": {"type": "INTEGER", "description": "임팩트 점수 (1~100)"},
                     "start_time": {"type": "NUMBER", "description": "구간 시작 시간(초)"},
                     "end_time": {"type": "NUMBER", "description": "구간 종료 시간(초)"},
-                    "impact_score": {"type": "INTEGER", "description": "임팩트 점수 (80~98)"},
-                    "reason": {"type": "STRING", "description": "해당 주제 요약 및 자막 미리보기 내용"},
+                    "reason": {"type": "STRING", "description": "자막 미리보기 및 해당 주제 설명"},
                 },
-                "required": ["main_title", "sub_title", "start_time", "end_time", "impact_score", "reason"],
+                "required": ["main_title", "sub_title", "impact_score", "start_time", "end_time", "reason"],
             },
         },
         temperature=0.2,
@@ -515,6 +572,7 @@ def main():
     groq_client = Groq(api_key=groq_api_key)
 
     st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
+    
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
     if uploaded_file:
@@ -569,7 +627,7 @@ def main():
                     pass
 
     # ==============================================================================
-    # 6. 분할 및 구간 분석 완료 후 화면 2분할 (토픽 리스트 & EDL 추출)
+    # 6. 분할 및 분석 완료 후 화면: 가로 2분할 레이아웃 적용
     # ==============================================================================
     if "topics" in st.session_state and st.session_state["topics"]:
         render_pipeline(pipe_placeholder, active_index=3, done=True)
@@ -577,131 +635,107 @@ def main():
         video_fps = st.session_state.get("video_fps", 29.97)
         source_filename = st.session_state.get("source_filename", "source.mp4")
 
-        # DataFrame 구성용 데이터 생성
-        df_rows = []
-        for index, topic in enumerate(topics):
-            start_sec = float(topic.get("start_time", 0.0))
-            end_sec = float(topic.get("end_time", 0.0))
-            duration_sec = round(end_sec - start_sec, 1)
-            tc_str = f"{seconds_to_timecode(start_sec, video_fps)} - {seconds_to_timecode(end_sec, video_fps)}"
-            
-            df_rows.append({
-                "선택": True,
-                "#": index + 1,
-                "구간 (IN-OUT)": tc_str,
-                "길이": f"{duration_sec}초",
-                "추천 제목": topic.get("main_title", f"주제 {index + 1}"),
-                "임팩트": f"{topic.get('impact_score', 90)}점",
-                "자막 미리보기": topic.get("reason", "-"),
-                "_start_sec": start_sec,
-                "_end_sec": end_sec,
-            })
-        
-        df = pd.DataFrame(df_rows)
-
-        # 1. 화면 가로 2분할 (좌측 7 : 우측 3 비율)
-        left_col, right_col = st.columns([7, 3], gap="large")
+        # 7:3 또는 8:4 비율의 가로 2분할 레이아웃 (col_left : col_right)
+        col_left, col_right = st.columns([7, 3], gap="large")
 
         # --------------------------------------------------------------------------
-        # [좌측 영역] 토픽 리스트
+        # [좌측 영역]: 토픽 리스트 패널
         # --------------------------------------------------------------------------
-        with left_col:
-            st.markdown("### 토픽 리스트")
+        with col_left:
+            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px; color:var(--text-primary);">토픽 리스트 (구간 선택)</p>', unsafe_allow_html=True)
             
-            # 상단 헤더 영역 구성 (선택 개수 및 선택 해제 버튼)
-            # 세션 스테이트를 이용해 전체 선택 해제 상태 관리
-            if "deselect_all_toggle" not in st.session_state:
-                st.session_state["deselect_all_toggle"] = False
+            selected_indices = []
+            for index, topic in enumerate(topics):
+                start_sec = float(topic.get("start_time", 0.0))
+                end_sec = float(topic.get("end_time", 0.0))
+                duration = round(end_sec - start_sec, 1)
+                
+                num_str = f"#{index + 1:02d}"
+                title = html.escape(str(topic.get("main_title", f"주제 {index + 1}")))
+                reason = html.escape(str(topic.get("reason", "-")))
+                impact = topic.get("impact_score", 80)
+                tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)}"
+                length_str = f"{duration}초"
 
-            # 데이터 에디터 출력 전 편집 반영을 위한 세션 키 처리
-            editor_key = "topic_table_editor"
+                # 카드 내 체크박스 및 상세 정보 구성
+                with st.container():
+                    is_selected = st.checkbox(
+                        f"**{num_str}** {title}",
+                        value=True,
+                        key=f"topic_chk_{index}"
+                    )
+                    
+                    st.markdown(
+                        f'<div class="h-card">'
+                        f'<div class="h-row" style="justify-content: space-between;">'
+                        f'<div class="tc-block">{icon("clock", 13, "currentColor")} 구간: <b>{tc_str}</b></div>'
+                        f'<div>길이: <b>{length_str}</b> | 임팩트 점수: <span style="color:var(--brand); font-weight:700;">{impact}점</span></div>'
+                        f'</div>'
+                        f'<div class="h-reason"><b>자막 미리보기 / 요약</b>{reason}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                
+                if is_selected:
+                    selected_indices.append(index)
+
+        # --------------------------------------------------------------------------
+        # [우측 영역]: EDL 파일 생성 패널
+        # --------------------------------------------------------------------------
+        with col_right:
+            st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 0 0 12px; color:var(--text-primary);">EDL 패키징</p>', unsafe_allow_html=True)
             
-            # 사용자 편의를 위한 버튼 행
-            col_h1, col_h2 = st.columns([2, 1])
-            with col_h2:
-                if st.button("모두 선택 해제", use_container_width=True):
-                    for i in range(len(df)):
-                        st.session_state[f"{editor_key}_row_{i}"] = False
-                    st.rerun()
-
-            # 표 형태(Table)의 인터랙티브 데이터 에디터 렌더링
-            edited_df = st.data_editor(
-                df[["선택", "#", "구간 (IN-OUT)", "길이", "추천 제목", "임팩트", "자막 미리보기"]],
-                hide_index=True,
-                use_container_width=True,
-                key=editor_key,
-                column_config={
-                    "선택": st.column_config.CheckboxColumn("선택", default=True, width="small"),
-                    "#": st.column_config.NumberColumn("#", width="small"),
-                    "구간 (IN-OUT)": st.column_config.TextColumn("구간 (IN-OUT)", width="medium"),
-                    "길이": st.column_config.TextColumn("길이", width="small"),
-                    "추천 제목": st.column_config.TextColumn("추천 제목", width="medium"),
-                    "임팩트": st.column_config.TextColumn("임팩트", width="small"),
-                    "자막 미리보기": st.column_config.TextColumn("자막 미리보기", width="large"),
-                }
+            # 총 러닝타임 계산
+            total_duration_sec = sum(
+                float(topics[i].get("end_time", 0.0)) - float(topics[i].get("start_time", 0.0))
+                for i in selected_indices
             )
+            total_mins = int(total_duration_sec // 60)
+            total_secs = int(total_duration_sec % 60)
+            total_running_time_str = f"{total_mins:02d}:{total_secs:02d}"
 
-            # 현재 선택된 항목 수 계산
-            selected_rows_indices = edited_df[edited_df["선택"] == True].index.tolist()
-            selected_count = len(selected_rows_indices)
-            
-            st.markdown(f"<p style='color:var(--text-secondary); font-size:0.9rem; font-weight:600;'>💡 총 {len(topics)}개 주제 중 <b>{selected_count}개</b> 선택됨</p>", unsafe_allow_html=True)
-
-        # --------------------------------------------------------------------------
-        # [우측 영역] EDL 파일 생성 패널 (카드 박스 스타일)
-        # --------------------------------------------------------------------------
-        with right_col:
-            with st.container(border=True):
-                st.markdown("### 🎬 EDL 파일 생성")
-                st.markdown("---")
-
-                # 선택된 클립들의 총 러닝타임 계산
-                total_selected_duration = sum(
-                    df_rows[i]["_end_sec"] - df_rows[i]["_start_sec"] 
-                    for i in selected_rows_indices
-                )
-                total_min = int(total_selected_duration // 60)
-                total_sec = int(total_selected_duration % 60)
-                total_time_str = f"{total_min:02d}:{total_sec:02d}"
-
-                # 키-값 형태의 정보성 텍스트 정렬
+            # 우측 패널 카드 박스 컨테이너
+            with st.container():
                 st.markdown(
-                    f"""
-                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.95rem; margin-bottom: 16px;">
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-secondary);">내보낼 항목:</span> <b>{selected_count}개 클립</b></div>
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-secondary);">총 러닝타임:</span> <b style="font-family: 'IBM Plex Mono', monospace;">{total_time_str}</b></div>
-                        <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-secondary);">타임코드 포맷:</span> <b style="font-family: 'IBM Plex Mono', monospace;">CMX 3600</b></div>
-                    </div>
-                    """,
+                    f'<div class="edl-panel-box">'
+                    f'<div class="edl-panel-title">{icon("doc", 20, BRAND)} EDL 파일 생성</div>'
+                    f'<div class="kv-row"><span class="kv-key">내보낼 항목</span><span class="kv-val">{len(selected_indices)}개 클립</span></div>'
+                    f'<div class="kv-row"><span class="kv-key">총 러닝타임</span><span class="kv-val">{total_running_time_str}</span></div>'
+                    f'<div class="kv-row"><span class="kv-key">타임코드 포맷</span><span class="kv-val">CMX 3600</span></div>'
+                    f'</div>',
                     unsafe_allow_html=True
                 )
 
-                # 파일명 입력 텍스트 입력창
-                default_edl_name = f"{os.path.splitext(source_filename)[0]}_selected.edl"
-                user_filename = st.text_input("파일 명칭 입력", value=default_edl_name)
+            st.markdown('<div style="margin-top: 12px;"></div>', unsafe_allow_html=True)
+            
+            # 파일명 입력 텍스트 박스
+            default_edl_name = f"{os.path.splitext(source_filename)[0]}_selected_split.edl"
+            user_filename = st.text_input("저장할 파일명 입력", value=default_edl_name)
 
-                st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+            if not selected_indices:
+                st.info("💡 좌측 리스트에서 내보낼 주제 카드를 최소 1개 이상 선택해주세요.")
+                st.button("EDL 파일 생성", type="primary", disabled=True, use_container_width=True)
+            else:
+                st.info(f"💡 총 {len(selected_indices)}개의 주제 구간이 선택되었습니다. 아래 버튼을 눌러 EDL을 다운로드하세요.")
+                
+                # 선택된 구간 필터링 후 EDL 문자열 생성
+                filtered_topics = [topics[i] for i in selected_indices]
+                edl_content = generate_edl(filtered_topics, source_filename=source_filename, fps=video_fps)
+                
+                safe_filename = user_filename.strip() if user_filename.strip() else default_edl_name
+                if not safe_endswith := safe_filename.endswith(".edl"):
+                    safe_filename += ".edl"
 
-                # 안내 박스 (st.info)
-                st.info("선택한 토픽의 순서대로 CMX 3600 규격의 EDL 파일이 패키징됩니다. 편집 프로그램(Premiere, DaVinci 등)에서 즉시 임포트할 수 있습니다.")
+                b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
+                href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
 
-                # EDL 파일 콘텐츠 생성 및 다운로드 버튼 연결
-                if selected_count == 0:
-                    accessible_alert("선택된 구간이 없습니다. 최소 1개 이상을 체크해주세요.", kind="error", icon_name="alert-triangle")
-                else:
-                    filtered_topics = [topics[i] for i in selected_rows_indices]
-                    final_filename = user_filename.strip() if user_filename.strip() else default_edl_name
-                    
-                    edl_content = generate_edl(filtered_topics, source_filename=source_filename, fps=video_fps)
-                    b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
-                    href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
-
-                    st.markdown(
-                        f'<div style="margin-top: 16px;">'
-                        f'<a href="{href}" download="{html.escape(final_filename)}" class="dl-btn">EDL 파일 생성 및 다운로드</a>'
-                        f'</div>', 
-                        unsafe_allow_html=True
-                    )
+                # 커스텀 스타일이 적용된 다운로드 버튼 연동 렌더링
+                st.markdown(
+                    f'<a href="{href}" download="{html.escape(safe_filename)}" style="text-decoration: none;">'
+                    f'<button kind="primary" style="width: 100%; cursor: pointer;">📥 EDL 파일 생성 및 다운로드</button>'
+                    f'</a>',
+                    unsafe_allow_html=True
+                )
 
 if __name__ == "__main__":
     main()
