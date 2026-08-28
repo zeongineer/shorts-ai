@@ -2,6 +2,7 @@ import html
 import os
 import subprocess
 import tempfile
+import base64
 from typing import Any, Dict, List
 
 from google import genai
@@ -102,7 +103,6 @@ st.markdown(
         letter-spacing:-0.3px; display: flex; align-items: center; gap: 8px;
     }}
 
-    /* 업로드 위젯 스타일링 */
     [data-testid="stFileUploaderDropzone"] {{
         background: var(--surface) !important;
         border: 2px dashed #CBD5E1 !important;
@@ -119,7 +119,6 @@ st.markdown(
     }}
     [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
 
-    /* 파이프라인 카드 */
     .pipe-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:20px 24px; height: 155px; box-shadow: var(--shadow-sm);
@@ -139,10 +138,10 @@ st.markdown(
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
-    /* 하이라이트 카드 (기준) */
+    /* 공통 카드 스타일 (하이라이트 카드 및 다운로드 카드) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
-        padding:24px; height:100%; box-shadow: var(--shadow-sm);
+        padding:24px; box-shadow: var(--shadow-sm);
         display:flex; flex-direction:column; gap:12px;
     }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
@@ -157,81 +156,39 @@ st.markdown(
         border: 1px solid var(--border);
     }}
     .h-reason b {{ color:var(--text-primary); display:block; margin-bottom:4px; }}
-    
     .c-brand .step-num {{ background:var(--brand); }}
 
     /* ==============================================================================
-       다운로드 카드 섹션 강제 오버라이딩 (하이라이트 카드와 100% 동일화)
+       커스텀 HTML 다운로드 카드 스타일
        ============================================================================== */
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.download-target) {{
-        background-color: var(--surface) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-        padding: 24px !important; /* h-card와 동일한 24px 패딩 */
-        box-shadow: var(--shadow-sm) !important;
-    }}
-
-    /* 컨테이너 내부 Streamlit 고유의 여백 제거 */
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.download-target) > div {{
-        gap: 0 !important;
-        padding: 0 !important;
-    }}
-
-    /* 다운로드 정보 영역 텍스트 및 아이콘 정렬 */
-    .download-info {{ 
-        display: flex; 
+    .dl-wrapper {{
+        flex-direction: row; 
         align-items: center; 
-        gap: 16px; 
-        margin: 0 !important;
+        justify-content: space-between;
     }}
-    
     .download-icon-box {{
         width:48px; height:48px; border-radius:10px; background:var(--brand-tint); color:var(--brand);
         display:flex; align-items:center; justify-content:center; flex-shrink:0;
     }}
-    
-    .download-text-group {{
-        display: flex; flex-direction: column; justify-content: center;
-    }}
-    
     .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
     .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
-
-    /* 컬럼 요소 수직 중앙 정렬 완벽화 */
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.download-target) [data-testid="stHorizontalBlock"] {{
-        align-items: center !important; 
-    }}
     
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.download-target) [data-testid="stHorizontalBlock"] > div {{
-        display: flex !important;
-        flex-direction: column !important;
-        justify-content: center !important;
-    }}
-
-    /* 내부 위젯 여백 초기화로 틀어짐 방지 */
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.download-target) .stMarkdown,
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(.download-target) p {{
-        margin-bottom: 0 !important; 
-        padding: 0 !important;
-    }}
-
-    /* 다운로드 버튼 디자인 */
-    div.stDownloadButton > button {{
-        background-color: var(--brand) !important;
-        border-color: var(--brand) !important;
+    .dl-btn {{
+        background-color: var(--brand);
         color: #FFFFFF !important;
-        font-weight:600 !important; font-size: 0.95rem !important;
-        padding: 0.6rem 1.5rem !important;
-        border-radius: 8px !important;
-        box-shadow: 0 2px 4px rgba(28,157,233,0.2) !important;
-        transition: all 0.2s ease !important;
-        margin: 0 !important;
+        font-weight: 600; font-size: 0.95rem;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        text-decoration: none;
+        display: inline-block;
+        box-shadow: 0 2px 4px rgba(28,157,233,0.2);
+        transition: all 0.2s ease;
+        border: 1px solid var(--brand);
     }}
-    div.stDownloadButton > button:hover {{
-        background-color: var(--brand-dark) !important;
-        border-color: var(--brand-dark) !important;
-        color: #FFFFFF !important;
-        box-shadow: 0 4px 12px rgba(28,157,233,0.3) !important;
+    .dl-btn:hover {{
+        background-color: var(--brand-dark);
+        border-color: var(--brand-dark);
+        box-shadow: 0 4px 12px rgba(28,157,233,0.3);
         transform: translateY(-1px);
     }}
     </style>
@@ -304,7 +261,7 @@ def seconds_to_min_sec(seconds: float) -> str:
     return f"{minutes:02d}:{seconds:02d}"
 
 def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
-    return "TITLE: MOCK_EDL\n"
+    return "TITLE: MOCK_EDL\nFCM: NON-DROP FRAME\n"
 
 def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
     return [ 
@@ -327,7 +284,7 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 
     st.markdown(
         f"""
-        <article class="h-card {theme['class']}">
+        <article class="h-card {theme['class']}" style="height:100%;">
             <div class="h-top">
                 <span class="step-num">{index + 1}</span>
             </div>
@@ -382,32 +339,24 @@ def main():
         st.markdown('<div class="section-title">💾 EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
-        # 다운로드 카드 섹션: border=True 속성을 살리되 download-target 플래그로 CSS를 100% 매핑
-        with st.container(border=True):
-            st.markdown('<span class="download-target" style="display:none;"></span>', unsafe_allow_html=True)
-            
-            info_col, dl_col = st.columns([3, 1], vertical_alignment="center")
-            
-            with info_col:
-                st.markdown(f"""
-                    <div class="download-info">
-                        <div class="download-icon-box">{icon('doc', 24, BRAND)}</div>
-                        <div class="download-text-group">
-                            <div class="file-name">{html.escape(edl_filename)}</div>
-                            <div class="file-meta">CMX 3600 Format 타임코드 데이터</div>
-                        </div>
+        # Streamlit 레이아웃을 사용하지 않고 순수 HTML Base64 다운로드 링크 생성
+        b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
+        href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
+
+        st.markdown(f"""
+            <div class="h-card dl-wrapper">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div class="download-icon-box">{icon('doc', 24, BRAND)}</div>
+                    <div>
+                        <div class="file-name">{html.escape(edl_filename)}</div>
+                        <div class="file-meta">CMX 3600 Format 타임코드 데이터</div>
                     </div>
-                """, unsafe_allow_html=True)
-                
-            with dl_col:
-                st.download_button(
-                    label="EDL 파일 다운로드", 
-                    data=edl_content, 
-                    file_name=edl_filename, 
-                    mime="text/plain", 
-                    use_container_width=True,
-                    type="primary"
-                )
+                </div>
+                <a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">
+                    EDL 파일 다운로드
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
 
     except Exception as e:
         accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
