@@ -3,11 +3,14 @@ import os
 import subprocess
 import tempfile
 import base64
+import json
 from typing import Any, Dict, List
 
 import streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
+from google import genai
+from google.genai import types
 
 # ==============================================================================
 # 1. 환경 및 페이지 설정
@@ -269,23 +272,75 @@ def seconds_to_timecode(seconds: float, fps: int = 30) -> str:
     ff = total_frames % fps
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
-def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
+def generate_edl(highlights: list, reel_name: str, fps: int = 30) -> str:
     edl_lines = ["TITLE: AI_SHORTFORM_EDL", "FCM: NON-DROP FRAME"]
     for i, hl in enumerate(highlights):
-        start_tc = seconds_to_timecode(hl.get("start_time", 0.0))
-        end_tc = seconds_to_timecode(hl.get("end_time", 0.0))
+        start_tc = seconds_to_timecode(hl.get("start_time", 0.0), fps)
+        end_tc = seconds_to_timecode(hl.get("end_time", 0.0), fps)
         event_num = f"{(i+1):03d}"
         line1 = f"{event_num}  {reel_name:<8} V     C        {start_tc} {end_tc} {start_tc} {end_tc}"
         line2 = f"* FROM CLIP NAME: {hl.get('main_title', 'Unknown')}"
         edl_lines.extend([line1, line2])
     return "\n".join(edl_lines) + "\n"
 
-def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
-    return [ 
-        {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "카운트다운부터 엔진 점화, 이륙까지 긴장감이 고조되는 핵심 텐션 구간입니다. 시각적 임팩트가 크고 앵커의 격앙된 현장 멘트가 맞물려 숏폼 플랫폼 내 초기 시청 이탈률을 방어하기에 가장 적합합니다."},
-        {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "현장의 긴박한 피해 상황(CCTV)과 기상 캐스터의 요약 브리핑이 속도감 있게 교차 편집된 구간입니다. 재난/날씨 관련 숏폼 특성상 시청자들의 경각심을 자극하여 높은 바이럴(공유) 수치를 이끌어낼 수 있습니다."},
-        {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "노사 간의 첨예한 갈등 상황을 양측 인터뷰와 핵심 그래픽 자료로 40초 안에 압축하여 전달합니다. 시청자들의 적극적인 댓글 참여와 토론을 유도하기 좋은 전형적인 '정보 전달형' 숏폼 구성입니다."}
-    ]
+def run_gemini_highlight_extraction(uploaded_file, fps: int = 30) -> list:
+    """실제 Gemini API를 호출하여 뉴스 미디어/자막 데이터를 분석하고 숏폼 하이라이트 구간을 추출합니다."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        st.error("GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.")
+        return []
+
+    client = genai.Client(api_key=api_key)
+    
+    # 임시 파일로 저장하여 Gemini File API에 업로드
+    suffix = os.path.splitext(uploaded_file.name)[1]
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(uploaded_file.getvalue())
+        tmp_path = tmp.name
+
+    try:
+        with st.spinner("Gemini가 미디어를 업로드하고 분석 중입니다..."):
+            gemini_file = client.files.upload(file=tmp_path)
+            
+            prompt = (
+                "이 뉴스 미디어 파일에서 숏폼 플랫폼(예: 유튜브 쇼츠, 릴스)에 가장 적합하고 "
+                "임팩트 있는 핵심 하이라이트 구간 3개를 선정해주세요. "
+                "각 구간의 시작 시간(start_time, 초 단위 실수), 종료 시간(end_time, 초 단위 실수), "
+                "주제 제목(main_title), 부제(sub_title), 그리고 선정 이유(reason)를 "
+                "반드시 JSON 배열 형태로 출력하세요."
+            )
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[gemini_file, prompt],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema={
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "main_title": {"type": "STRING"},
+                                "sub_title": {"type": "STRING"},
+                                "start_time": {"type": "NUMBER"},
+                                "end_time": {"type": "NUMBER"},
+                                "reason": {"type": "STRING"}
+                            },
+                            "required": ["main_title", "sub_title", "start_time", "end_time", "reason"]
+                        }
+                    },
+                    temperature=0.2,
+                ),
+            )
+            
+            highlights = json.loads(response.text)
+            return highlights
+    except Exception as e:
+        st.error(f"Gemini API 처리 중 오류 발생: {e}")
+        return []
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 # ==============================================================================
 # 5. 하이라이트 카드 렌더링
@@ -337,12 +392,17 @@ def main():
     try:
         render_pipeline(pipe_placeholder, active_index=0)
         render_pipeline(pipe_placeholder, active_index=1)
+        
         render_pipeline(pipe_placeholder, active_index=2)
+        highlights = run_gemini_highlight_extraction(uploaded_file)
         
-        highlights = run_gemini_highlight_extraction("mock_key", [])
-        
+        if not highlights:
+            accessible_alert("하이라이트 추출 결과가 없습니다. 파일 내용을 확인해주세요.", kind="error", icon_name="x-circle")
+            return
+
         render_pipeline(pipe_placeholder, active_index=3)
-        edl_content = generate_edl(highlights)
+        reel_name = os.path.splitext(uploaded_file.name)[0][:8].upper()
+        edl_content = generate_edl(highlights, reel_name=reel_name)
         render_pipeline(pipe_placeholder, active_index=3, done=True)
 
         st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
@@ -373,7 +433,7 @@ def main():
         )
 
     except Exception as e:
-        accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
+        accessible_alert(f"처리 중 문제가 발생했습니다: {e}", kind="error", icon_name="x-circle")
 
 if __name__ == "__main__":
     main()
