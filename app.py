@@ -257,7 +257,6 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
             state = "pending"
             icon_html = f"{i+1}"
 
-        # 수정됨: 마크다운 코드 블록 오류 방지를 위해 들여쓰기 제거
         html_str += (
             f'<div class="step-node {state}">'
             f'<div class="step-circle">{icon_html}</div>'
@@ -287,10 +286,29 @@ def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
     return "\n".join(edl_lines) + "\n"
 
 def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
+    # 비디오 감독 및 편집 실무자의 시각에 맞춘 구체적인 선정 이유로 수정되었습니다.
     return [ 
-        {"main_title": "누리호 발사", "sub_title": "우주 과학 이슈", "start_time": 10.5, "end_time": 45.0, "reason": "발사 성공의 역사적 순간을 잘 포착했습니다."},
-        {"main_title": "가을 태풍", "sub_title": "기상 정보", "start_time": 120.0, "end_time": 155.5, "reason": "높은 대중적 관심도를 끌어낼 수 있습니다."},
-        {"main_title": "성과급 부결", "sub_title": "경제 이슈", "start_time": 210.0, "end_time": 250.0, "reason": "원인과 배경을 명확하게 설명하고 있습니다."}
+        {
+            "main_title": "누리호 발사", 
+            "sub_title": "우주 과학 이슈", 
+            "start_time": 10.5, 
+            "end_time": 45.0, 
+            "reason": "카운트다운부터 발사 직후의 엔진 화염까지 시각적 임팩트가 강한 구간입니다. 현장음(오디오 바이트)이 클라이맥스에 달해 초반 3초 내 시청자 주목도를 극대화할 수 있으며, 숏폼 플랫폼의 빠른 호흡에 적합한 인점(In-point)과 아웃점(Out-point)을 포함하고 있습니다."
+        },
+        {
+            "main_title": "가을 태풍", 
+            "sub_title": "기상 정보", 
+            "start_time": 120.0, 
+            "end_time": 155.5, 
+            "reason": "기상 캐스터의 긴박한 브리핑과 피해 현장 인서트(Insert) 화면이 교차되는 구간으로, 정보 전달력과 현장감이 뛰어납니다. 특히 이탈률이 높은 중반부에 시각적 긴장감을 부여하여 리텐션을 유지하기 좋은 편집 구조를 갖추고 있습니다."
+        },
+        {
+            "main_title": "성과급 부결", 
+            "sub_title": "경제 이슈", 
+            "start_time": 210.0, 
+            "end_time": 250.0, 
+            "reason": "복잡한 이슈를 앵커가 핵심만 요약하여 전달하는 펀치라인(Punchline) 구간입니다. 자막 그래픽(CG)과 매칭하기 좋은 명확한 오디오 레벨과 딕션을 유지하고 있어, 정보성 숏폼 콘텐츠로 2차 가공 시 시청자 전달력이 가장 우수합니다."
+        }
     ]
 
 # ==============================================================================
@@ -303,7 +321,6 @@ def render_highlight_card(index: int, highlight: dict) -> None:
     title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
     reason = html.escape(str(highlight.get("reason", "-")))
 
-    # 수정됨: 마크다운 코드 블록 오류 방지를 위해 들여쓰기 제거
     st.markdown(
         f'<article class="h-card" style="height:100%;">'
         f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
@@ -365,7 +382,6 @@ def main():
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
         href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
 
-        # 수정됨: 마크다운 코드 블록 오류 방지를 위해 들여쓰기 제거
         st.markdown(
             f'<div class="h-card dl-wrapper">'
             f'<div style="display: flex; align-items: center; gap: 16px;">'
