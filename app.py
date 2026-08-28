@@ -19,13 +19,14 @@ load_dotenv()
 st.set_page_config(
     page_title="뉴스 숏폼 하이라이트 추출기",
     page_icon="🎬",
-    layout="wide",
+    layout="wide", # 넓게 쓰되 CSS로 max-width를 1200px로 제어
     initial_sidebar_state="collapsed",
 )
 
-BRAND = "#1C9DE9"
-BRAND_DARK = "#0E7FC4"
-BRAND_TINT = "#EAF6FE"
+# [수정 4] 톤다운된 네이비(Navy) 계열로 브랜드 컬러 변경
+BRAND = "#1E3A8A" 
+BRAND_DARK = "#1E40AF"
+BRAND_TINT = "#EFF6FF"
 
 # ==============================================================================
 # 2. 아이콘 (SVG, Lucide 스타일)
@@ -44,6 +45,7 @@ _ICON_PATHS = {
     "chart": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
     "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     "timer": '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
+    "chevron-right": '<polyline points="9 18 15 12 9 6"/>', # [수정 2] 파이프라인 화살표 추가
 }
 
 def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: float = 2) -> str:
@@ -53,12 +55,6 @@ def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: f
         f'viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="{stroke_width}" '
         f'stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex-shrink:0;">{path}</svg>'
     )
-
-CARD_THEMES = [
-    {"class": "c-brand", "icon": "doc"},
-    {"class": "c-brand", "icon": "mic"},
-    {"class": "c-brand", "icon": "chart"},
-]
 
 st.markdown(
     f"""
@@ -75,12 +71,20 @@ st.markdown(
         --text-primary:#0F172A;
         --text-secondary:#64748B;
         --green:#10B981;
+        --gray-light:#F1F5F9;
         --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }}
 
     .stApp {{ background-color: var(--bg-base); }}
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
+
+    /* [수정 1] 메인 콘텐츠 레이아웃 제한 (1200px) */
+    .block-container {{
+        max-width: 1200px !important;
+        margin: 0 auto;
+        padding-top: 3rem !important;
+    }}
 
     .app-header {{ display:flex; align-items:center; gap:16px; margin-bottom: 8px; }}
     .app-title-group {{ display:flex; flex-direction:column; gap:4px; }}
@@ -103,34 +107,25 @@ st.markdown(
         letter-spacing:-0.3px; display: flex; align-items: center; gap: 8px;
     }}
 
-    [data-testid="stFileUploaderDropzone"] {{
-        background: var(--surface) !important;
-        border: 2px dashed #CBD5E1 !important;
-        border-radius: 12px !important;
-        transition: all 0.2s ease;
+    /* [수정 2] 파이프라인 모듈화 (Flow 시각적 연결) */
+    .pipeline-container {{
+        display: flex; align-items: center; gap: 12px; margin: 24px 0;
+        background: var(--surface); padding: 16px 24px; border-radius: 12px;
+        border: 1px solid var(--border); box-shadow: var(--shadow-sm);
     }}
-    [data-testid="stFileUploaderDropzone"]:hover {{ border-color: var(--brand) !important; }}
-    [data-testid="stFileUploaderFile"] {{
-        background: var(--surface) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 10px !important;
-        padding: 12px 16px !important;
-        box-shadow: var(--shadow-sm) !important;
-    }}
-    [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
-
     .pipe-card {{
-        background:var(--surface); border:1px solid var(--border); border-radius:12px;
-        padding:20px 24px; box-shadow: var(--shadow-sm);
-        display:flex; flex-direction:column; gap:12px;
+        flex: 1; display: flex; flex-direction: column; gap: 6px;
+        padding: 16px; border-radius: 8px; border: 1px solid transparent;
         transition: all 0.2s ease;
-        justify-content: center;
-        min-height: 80px; 
     }}
-    .pipe-card.active {{ border-color:var(--brand); box-shadow: 0 0 0 2px var(--brand-tint), var(--shadow-md); }}
-    .pipe-title {{ display:flex; align-items:center; gap:10px; font-size:1rem; font-weight:700; color:var(--text-primary); }}
-    .pipe-status {{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:600; margin-top: 4px; }}
-    .pipe-status.done {{ color:var(--green); }}
+    .pipe-card.done {{ background: var(--bg-base); border-color: var(--border); }}
+    .pipe-card.active {{ background: var(--brand-tint); border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }}
+    .pipe-card.pending {{ opacity: 0.5; }}
+    
+    .pipe-arrow {{ display: flex; align-items: center; color: #94A3B8; flex-shrink: 0; }}
+    .pipe-title {{ font-size:0.95rem; font-weight:700; color:var(--text-primary); }}
+    .pipe-status {{ display:flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:600; }}
+    .pipe-status.done {{ color:var(--text-secondary); }}
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
@@ -141,23 +136,28 @@ st.markdown(
     }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
     .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
+    
+    /* [수정 3] 완벽한 원형의 숫자 배지 */
+    .step-num {{ 
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 26px; height: 26px; border-radius: 50%;
+        background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.85rem;
+    }}
+
+    /* [수정 4] 타임코드 영역을 회색 블록으로 묶어 여백 응집력 향상 */
     .h-row {{
+        background: var(--gray-light); padding: 8px 12px; border-radius: 6px;
         display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono', monospace;
-        font-size:0.85rem; color:var(--text-secondary);
+        font-size:0.85rem; color:var(--text-secondary); margin-bottom: 4px;
     }}
     .h-reason {{
-        margin-top:auto; background:var(--bg-base); border-radius:10px;
-        padding:16px 20px; font-size:0.85rem; color:var(--text-secondary); line-height:1.65;
+        margin-top: 8px; background:var(--bg-base); border-radius:8px;
+        padding:16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
         border: 1px solid var(--border);
     }}
     .h-reason b {{ color:var(--text-primary); display:block; margin-bottom:4px; }}
-    .c-brand .step-num {{ background:var(--brand); }}
 
-    .dl-wrapper {{
-        flex-direction: row; 
-        align-items: center; 
-        justify-content: space-between;
-    }}
+    .dl-wrapper {{ flex-direction: row; align-items: center; justify-content: space-between; }}
     .download-icon-box {{
         width:48px; height:48px; border-radius:10px; background:var(--brand-tint); color:var(--brand);
         display:flex; align-items:center; justify-content:center; flex-shrink:0;
@@ -166,24 +166,13 @@ st.markdown(
     .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
     
     .dl-btn {{
-        background-color: var(--brand);
-        color: #FFFFFF !important;
-        font-weight: 600; font-size: 0.95rem;
-        padding: 0.6rem 1.5rem;
-        border-radius: 8px;
-        text-decoration: none !important;
-        display: inline-block;
-        box-shadow: 0 2px 4px rgba(28,157,233,0.2);
-        transition: all 0.2s ease;
+        background-color: var(--brand); color: #FFFFFF !important;
+        font-weight: 600; font-size: 0.95rem; padding: 0.6rem 1.5rem;
+        border-radius: 8px; text-decoration: none !important;
+        display: inline-block; transition: all 0.2s ease;
         border: 1px solid var(--brand);
     }}
-    .dl-btn:hover {{
-        background-color: var(--brand-dark);
-        border-color: var(--brand-dark);
-        box-shadow: 0 4px 12px rgba(28,157,233,0.3);
-        transform: translateY(-1px);
-        text-decoration: none !important;
-    }}
+    .dl-btn:hover {{ background-color: var(--brand-dark); border-color: var(--brand-dark); transform: translateY(-1px); }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -221,30 +210,36 @@ def render_header() -> None:
 # 4. 파이프라인 및 방송 데이터 포맷팅
 # ==============================================================================
 PIPELINE_STEPS = [
-    {"title": "미디어 전처리", "desc": "16kHz Mono 오디오 최적화 및 임시 파일 생성"},
-    {"title": "음성 인식 (STT)", "desc": "Groq Whisper를 활용한 정밀 텍스트 및 타임코드 추출"},
-    {"title": "AI 숏폼 분석", "desc": "Gemini AI 기반 핵심 문맥 파악 및 30~60초 하이라이트 선정"},
-    {"title": "EDL 패키징", "desc": "선정된 데이터 기반 CMX 3600 표준 EDL 포맷 렌더링"},
+    {"title": "미디어 전처리"},
+    {"title": "음성 인식 (STT)"},
+    {"title": "AI 숏폼 분석"},
+    {"title": "EDL 패키징"},
 ]
 
-def render_pipeline(placeholders: list, active_index: int, done: bool = False) -> None:
-    for i, ph in enumerate(placeholders):
-        step = PIPELINE_STEPS[i]
+# [수정 2] 분리되어 있던 컬럼들을 단일 컨테이너 내부의 프로세스 플로우로 통합
+def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
+    html_str = '<div class="pipeline-container">'
+    for i, step in enumerate(PIPELINE_STEPS):
         if done or i < active_index:
-            card_class, status_html = "", f'<div class="pipe-status done">{icon("check", 14, "currentColor", 2.5)} 완료</div>'
+            card_class, status_html = "done", f'<div class="pipe-status done">{icon("check", 14, "currentColor", 2)} 완료</div>'
         elif i == active_index:
             card_class, status_html = "active", f'<div class="pipe-status active">{icon("dot", 14, "currentColor", 2)} 진행 중</div>'
         else:
-            card_class, status_html = "", f'<div class="pipe-status pending">{icon("circle", 14, "currentColor", 2)} 대기 중</div>'
+            card_class, status_html = "pending", f'<div class="pipe-status pending">{icon("circle", 14, "currentColor", 2)} 대기 중</div>'
 
-        ph.markdown(f"""
+        html_str += f"""
             <div class="pipe-card {card_class}">
                 <div class="pipe-title">{step['title']}</div>
                 {status_html}
             </div>
-            """, unsafe_allow_html=True)
+        """
+        # 단계 사이 화살표 삽입
+        if i < len(PIPELINE_STEPS) - 1:
+            html_str += f'<div class="pipe-arrow">{icon("chevron-right", 24)}</div>'
+            
+    html_str += '</div>'
+    placeholder.markdown(html_str, unsafe_allow_html=True)
 
-# 방송 표준 시:분:초:프레임 (HH:MM:SS:FF) 변환기 - 29.97/30fps NDF 기준
 def seconds_to_timecode(seconds: float, fps: int = 30) -> str:
     total_frames = int(round(seconds * fps))
     hh = total_frames // (3600 * fps)
@@ -257,21 +252,15 @@ def seconds_to_min_sec(seconds: float) -> str:
     minutes, secs = divmod(max(0, int(seconds)), 60)
     return f"{minutes:02d}:{secs:02d}"
 
-# 하이라이트 배열을 순회하여 실제 CMX 3600 EDL 라인 생성
 def generate_edl(highlights: list, reel_name: str = "AX0101") -> str:
     edl_lines = ["TITLE: MOCK_EDL", "FCM: NON-DROP FRAME"]
-    
     for i, hl in enumerate(highlights):
         start_tc = seconds_to_timecode(hl.get("start_time", 0.0))
         end_tc = seconds_to_timecode(hl.get("end_time", 0.0))
-        
         event_num = f"{(i+1):03d}"
-        # CMX 3600 형식: 이벤트번호 | 릴이름 | 트랙 | 트랜지션 | 소스IN | 소스OUT | 레코드IN | 레코드OUT
         line1 = f"{event_num}  {reel_name:<8} V     C        {start_tc} {end_tc} {start_tc} {end_tc}"
         line2 = f"* FROM CLIP NAME: {hl.get('main_title', 'Unknown')}"
-        
         edl_lines.extend([line1, line2])
-        
     return "\n".join(edl_lines) + "\n"
 
 def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration: float = 0.0) -> list:
@@ -285,17 +274,15 @@ def run_gemini_highlight_extraction(api_key: str, segments: list, media_duration
 # 5. 하이라이트 카드 렌더링
 # ==============================================================================
 def render_highlight_card(index: int, highlight: dict) -> None:
-    theme = CARD_THEMES[index % len(CARD_THEMES)]
     start_sec = float(highlight.get("start_time", 0.0))
     end_sec = float(highlight.get("end_time", 0.0))
     duration = round(end_sec - start_sec, 1)
-
     title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
     reason = html.escape(str(highlight.get("reason", "-")))
 
     st.markdown(
         f"""
-        <article class="h-card {theme['class']}" style="height:100%;">
+        <article class="h-card" style="height:100%;">
             <div class="h-top">
                 <span class="step-num">{index + 1}</span>
             </div>
@@ -314,42 +301,44 @@ def render_highlight_card(index: int, highlight: dict) -> None:
 def main():
     render_header()
 
-    st.markdown('<div class="section-title">📁 뉴스 파일 업로드</div>', unsafe_allow_html=True)
+    # [수정 3] 아마추어 느낌을 주는 이모지 제거 및 텍스트 위계 설정
+    st.markdown('<div class="section-title">미디어 소스 업로드</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
 
     if not uploaded_file:
         return
-
-    st.markdown('<div class="section-title">🔍 하이라이트 분석</div>', unsafe_allow_html=True)
     
-    start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
+    # [수정 1] 액션 버튼 과도한 확장 방지 (고정폭 컨테이너 혹은 기본 사이즈 적용)
+    start_button = st.button("추출 및 EDL 생성 시작", type="primary")
 
-    pipe_cols = st.columns(4)
-    pipe_placeholders = [c.empty() for c in pipe_cols]
-    render_pipeline(pipe_placeholders, active_index=-1)
+    st.markdown('<div class="section-title">프로세스 현황</div>', unsafe_allow_html=True)
+    
+    # [수정 2] 단일 통합 플레이스홀더 사용
+    pipe_placeholder = st.empty()
+    render_pipeline(pipe_placeholder, active_index=-1)
 
     if not start_button:
         return
 
     try:
-        render_pipeline(pipe_placeholders, active_index=0)
-        render_pipeline(pipe_placeholders, active_index=1)
-        render_pipeline(pipe_placeholders, active_index=2)
+        render_pipeline(pipe_placeholder, active_index=0)
+        render_pipeline(pipe_placeholder, active_index=1)
+        render_pipeline(pipe_placeholder, active_index=2)
         
         highlights = run_gemini_highlight_extraction("mock_key", [])
         
-        render_pipeline(pipe_placeholders, active_index=3)
+        render_pipeline(pipe_placeholder, active_index=3)
         edl_content = generate_edl(highlights)
-        render_pipeline(pipe_placeholders, active_index=3, done=True)
+        render_pipeline(pipe_placeholder, active_index=3, done=True)
 
-        st.markdown('<div class="section-title">✨ 추천 숏폼 하이라이트 (3선)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">추천 숏폼 하이라이트 (3선)</div>', unsafe_allow_html=True)
 
         h_cols = st.columns(3)
         for index, highlight in enumerate(highlights):
             with h_cols[index % 3]:
                 render_highlight_card(index, highlight)
 
-        st.markdown('<div class="section-title">💾 EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
