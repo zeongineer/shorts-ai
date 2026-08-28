@@ -82,7 +82,6 @@ st.markdown(
     .stApp {{ background-color: var(--bg-base); }}
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
-    /* 헤더 텍스트만 깔끔하게 정렬되도록 여백 조정 */
     .app-header {{ display:flex; align-items:center; gap:16px; margin-bottom: 8px; }}
     .app-title-group {{ display:flex; flex-direction:column; gap:4px; }}
     .app-title {{
@@ -120,7 +119,6 @@ st.markdown(
     }}
     [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
 
-    /* 파이프라인 박스 높이 고정 (155px)으로 크기 통일 */
     .pipe-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:20px 24px; height: 155px; box-shadow: var(--shadow-sm);
@@ -140,11 +138,19 @@ st.markdown(
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
 
+    /* 하이라이트 카드 스타일 및 마우스 오버 효과 */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
         padding:24px; height:100%; box-shadow: var(--shadow-sm);
         display:flex; flex-direction:column; gap:12px;
+        transition: all 0.2s ease;
     }}
+    .h-card:hover {{
+        border-color: var(--brand);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-2px);
+    }}
+    
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
     .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
     .h-row {{
@@ -160,7 +166,7 @@ st.markdown(
     
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 다운로드 박스 래퍼 스타일을 하이라이트 카드(.h-card)와 동일하게 통일 (패딩 유지, 마우스 오버 효과 추가) */
+    /* 다운로드 박스 래퍼 스타일 (하이라이트 카드와 동일한 hover 효과 적용) */
     [data-testid="stVerticalBlockBorderWrapper"] {{
         background: var(--surface) !important;
         border: 1px solid var(--border) !important;
@@ -172,6 +178,7 @@ st.markdown(
     [data-testid="stVerticalBlockBorderWrapper"]:hover {{
         border-color: var(--brand) !important;
         box-shadow: var(--shadow-md) !important;
+        transform: translateY(-2px) !important;
     }}
 
     .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
@@ -182,9 +189,11 @@ st.markdown(
     .file-name {{ font-weight:700; font-size:1rem; color:var(--text-primary); margin-bottom:2px; }}
     .file-meta {{ color:var(--text-secondary); font-size:0.85rem; }}
 
+    /* 다운로드 버튼 색상 명확히 지정 (텍스트 흰색 강제) */
     div.stButton > button[kind="primary"], div.stDownloadButton > button {{
         background-color: var(--brand) !important;
         border-color: var(--brand) !important;
+        color: #FFFFFF !important;
         font-weight:600 !important; font-size: 0.95rem !important;
         padding: 0.6rem 1.5rem !important;
         border-radius: 8px !important;
@@ -194,6 +203,7 @@ st.markdown(
     div.stButton > button[kind="primary"]:hover, div.stDownloadButton > button:hover {{
         background-color: var(--brand-dark) !important;
         border-color: var(--brand-dark) !important;
+        color: #FFFFFF !important;
         box-shadow: 0 4px 12px rgba(28,157,233,0.3) !important;
         transform: translateY(-1px);
     }}
@@ -232,7 +242,6 @@ def render_header() -> None:
     )
     accessible_alert("처리 완료 시 편집기(EDIUS)에 즉시 임포트 가능한 타임코드 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
 
-
 # ==============================================================================
 # 4. 파이프라인 컴포넌트
 # ==============================================================================
@@ -262,7 +271,6 @@ def render_pipeline(placeholders: list, active_index: int, done: bool = False) -
             </div>
             """, unsafe_allow_html=True)
 
-# (더미 처리 함수 생략 없이 그대로 유지)
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -378,7 +386,7 @@ def main():
                     </div>
                 """, unsafe_allow_html=True)
             with dl_col:
-                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True) 
+                # 버튼 정렬을 깰 수 있는 높이 공백 div 제거 완료
                 st.download_button("EDL 파일 다운로드", data=edl_content, file_name=edl_filename, mime="text/plain", use_container_width=True)
 
     except Exception as e:
