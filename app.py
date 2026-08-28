@@ -160,13 +160,23 @@ st.markdown(
     
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 다운로드 박스 래퍼 스타일 (다른 카드들과 동일하게 통일, hover 제거) */
+    /* 다운로드 박스 래퍼 스타일 수정 (흰색 배경, 동일한 테두리, 내부 여백 및 간격 완벽 제어) */
     [data-testid="stVerticalBlockBorderWrapper"] {{
         background: var(--surface) !important;
         border: 1px solid var(--border) !important;
         border-radius: 12px !important;
         box-shadow: var(--shadow-sm) !important;
-        padding: 4px 8px !important;
+        padding: 4px 16px !important; /* 좌우 여백 확보 */
+    }}
+
+    /* Streamlit 컨테이너 내부의 기본 간격(gap) 강제 제거 */
+    [data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlock"] {{
+        gap: 0 !important;
+    }}
+
+    /* st.markdown이 렌더링할 때 생성하는 p 태그 하단 여백 제거 */
+    [data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stMarkdownContainer"] > p {{
+        margin-bottom: 0 !important;
     }}
 
     .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
@@ -362,7 +372,8 @@ def main():
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
         with st.container(border=True):
-            info_col, dl_col = st.columns([3, 1])
+            # vertical_alignment 속성을 추가하여 버튼과 텍스트 영역의 수직 중앙을 일치시킵니다.
+            info_col, dl_col = st.columns([3, 1], vertical_alignment="center")
             with info_col:
                 st.markdown(f"""
                     <div class="download-info">
@@ -374,8 +385,15 @@ def main():
                     </div>
                 """, unsafe_allow_html=True)
             with dl_col:
-                # 버튼 정렬을 깰 수 있는 높이 공백 div 제거 완료
-                st.download_button("EDL 파일 다운로드", data=edl_content, file_name=edl_filename, mime="text/plain", use_container_width=True)
+                # type="primary"를 추가하여 커스텀 CSS 테마와 일치하도록 적용합니다.
+                st.download_button(
+                    label="EDL 파일 다운로드", 
+                    data=edl_content, 
+                    file_name=edl_filename, 
+                    mime="text/plain", 
+                    use_container_width=True,
+                    type="primary"
+                )
 
     except Exception as e:
         accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
