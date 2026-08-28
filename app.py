@@ -436,7 +436,8 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
     실패 시 가짜 결과를 숨기지 않고 예외를 그대로 올려 호출부(main)에서
     사용자에게 실제 오류를 보여주도록 합니다."""
     client = genai.Client(api_key=api_key)
-    preferred_models = ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-2.5-flash"]
+    # gemini-2.5-flash는 신규 사용자에게 더 이상 제공되지 않아(404) 폴백 목록에서 제외.
+    preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
 
     formatted_transcript = "\n".join(
         f"[{seg['start']:.2f}s ~ {seg['end']:.2f}s] {seg['text']}" for seg in transcript_segments
@@ -477,7 +478,7 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
         temperature=0.2,
     )
 
-    last_exception = None
+    failures = []
     for model_name in preferred_models:
         try:
             response = client.models.generate_content(model=model_name, contents=prompt, config=gen_config)
@@ -485,14 +486,13 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
             fixed = sanitize_and_fix_highlights(raw_data, media_duration)
             if len(fixed) >= 1:
                 return fixed[:3]
-            last_exception = RuntimeError(f"모델 {model_name}이 유효한 구간을 반환하지 않았습니다.")
+            failures.append(f"{model_name}: 유효한 구간을 반환하지 않음 (원본 {len(raw_data) if isinstance(raw_data, list) else '?'}개 중 0개 통과)")
         except Exception as error:
-            last_exception = error
+            failures.append(f"{model_name}: {error}")
             continue
 
-    if last_exception:
-        raise RuntimeError(f"하이라이트 추출에 실패했습니다: {last_exception}") from last_exception
-    raise RuntimeError("하이라이트 추출에 실패했습니다. 원인을 알 수 없습니다.")
+    detail = " / ".join(failures) if failures else "알 수 없는 오류"
+    raise RuntimeError(f"하이라이트 추출에 실패했습니다 → {detail}")
 
 # ==============================================================================
 # 5. 하이라이트 카드 렌더링
