@@ -82,13 +82,8 @@ st.markdown(
     .stApp {{ background-color: var(--bg-base); }}
     body, .stApp, p, span, div {{ font-family: 'Noto Sans KR', sans-serif; }}
 
-    /* 수정: 헤더 아이콘과 텍스트 수직 중앙 정렬 (align-items: center) */
+    /* 헤더 텍스트만 깔끔하게 정렬되도록 여백 조정 */
     .app-header {{ display:flex; align-items:center; gap:16px; margin-bottom: 8px; }}
-    .app-logo {{
-        width:48px; height:48px; border-radius:12px; background:var(--brand);
-        display:flex; align-items:center; justify-content:center; flex-shrink:0;
-        box-shadow: var(--shadow-sm);
-    }}
     .app-title-group {{ display:flex; flex-direction:column; gap:4px; }}
     .app-title {{
         font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1.75rem;
@@ -106,7 +101,7 @@ st.markdown(
 
     .section-title {{
         font-size:1.15rem; font-weight:700; margin: 36px 0 16px; color:var(--text-primary);
-        letter-spacing:-0.3px;
+        letter-spacing:-0.3px; display: flex; align-items: center; gap: 8px;
     }}
 
     [data-testid="stFileUploaderDropzone"] {{
@@ -125,9 +120,10 @@ st.markdown(
     }}
     [data-testid="stFileUploaderFileName"] {{ font-weight:600 !important; color:var(--text-primary) !important; }}
 
+    /* 파이프라인 박스 높이 고정 (155px)으로 크기 통일 */
     .pipe-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:12px;
-        padding:20px 24px; min-height:136px; box-shadow: var(--shadow-sm);
+        padding:20px 24px; height: 155px; box-shadow: var(--shadow-sm);
         display:flex; flex-direction:column; gap:12px;
         transition: all 0.2s ease;
     }}
@@ -139,7 +135,7 @@ st.markdown(
         font-size:12px; font-weight:700; flex-shrink:0;
     }}
     .pipe-desc {{ font-size:0.85rem; color:var(--text-secondary); line-height:1.6; flex:1; }}
-    .pipe-status {{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:600; }}
+    .pipe-status {{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:600; margin-top: auto; }}
     .pipe-status.done {{ color:var(--green); }}
     .pipe-status.active {{ color:var(--brand); }}
     .pipe-status.pending {{ color:#94A3B8; }}
@@ -150,7 +146,6 @@ st.markdown(
         display:flex; flex-direction:column; gap:12px;
     }}
     .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
-    .h-icon {{ width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; }}
     .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
     .h-row {{
         display:flex; align-items:center; gap:8px; font-family:'IBM Plex Mono', monospace;
@@ -163,10 +158,17 @@ st.markdown(
     }}
     .h-reason b {{ color:var(--text-primary); display:block; margin-bottom:4px; }}
     
-    .c-brand .h-icon {{ background:var(--brand-tint); color:var(--brand); }}
     .c-brand .step-num {{ background:var(--brand); }}
 
-    /* 수정: 다운로드 인포 영역 패딩 추가 및 정렬 개선 */
+    /* 다운로드 박스 래퍼 스타일을 다른 카드와 동일하게 통일 */
+    [data-testid="stVerticalBlockBorderWrapper"] {{
+        border-radius: 12px !important;
+        border: 1px solid var(--border) !important;
+        box-shadow: var(--shadow-sm) !important;
+        background-color: var(--surface) !important;
+        padding: 4px 8px !important;
+    }}
+
     .download-info {{ display:flex; align-items:center; gap:16px; padding: 12px 16px; }}
     .download-icon-box {{
         width:48px; height:48px; border-radius:10px; background:var(--brand-tint); color:var(--brand);
@@ -216,7 +218,6 @@ def render_header() -> None:
     components.html('<script>try { window.parent.document.documentElement.lang = "ko"; } catch (e) {}</script>', height=0, width=0)
     st.markdown(
         '<header class="app-header">'
-        f'<div class="app-logo">{icon("film", size=24, color="#fff", stroke_width=2.2)}</div>'
         '<div class="app-title-group">'
         '<h1 class="app-title">뉴스 숏폼 하이라이트 자동 추출기</h1>'
         '<p class="app-sub">뉴스 미디어 파일을 업로드하면 Whisper AI로 자막을 추출하고, Gemini가 가장 임팩트 있는 숏폼 구간을 자동 선정합니다.</p>'
@@ -256,7 +257,7 @@ def render_pipeline(placeholders: list, active_index: int, done: bool = False) -
             </div>
             """, unsafe_allow_html=True)
 
-# (중략 - 6. 유틸리티 함수, 7. Whisper STT, 8. 데이터 보정, 9. Gemini 등 원본 로직 유지)
+# (더미 처리 함수 생략 없이 그대로 유지)
 def prepare_audio_for_groq(input_file_path: str) -> str:
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
@@ -305,7 +306,6 @@ def render_highlight_card(index: int, highlight: dict) -> None:
         <article class="h-card {theme['class']}">
             <div class="h-top">
                 <span class="step-num">{index + 1}</span>
-                <div class="h-icon">{icon(theme['icon'], 18, BRAND)}</div>
             </div>
             <h3>{title}</h3>
             <div class="h-row">{icon('clock', 14, 'currentColor')} {seconds_to_df_timecode(start_sec)} ~ {seconds_to_df_timecode(end_sec)}</div>
@@ -324,16 +324,14 @@ def main():
     
     render_header()
 
-    st.markdown('<div class="section-title">1. 뉴스 파일 업로드</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">📁 뉴스 파일 업로드</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
 
-    # 수정: 업로드 전에는 하이라이트 분석 및 이하 UI를 보여주지 않음
     if not uploaded_file:
         return
 
-    st.markdown('<div class="section-title">2. 하이라이트 분석</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">🔍 하이라이트 분석</div>', unsafe_allow_html=True)
     
-    # 수정: 버튼을 어색한 컬럼에 가두지 않고 자연스럽게 100% 폭으로 배치
     start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
 
     pipe_cols = st.columns(4)
@@ -352,17 +350,16 @@ def main():
         edl_content = generate_edl(highlights)
         render_pipeline(pipe_placeholders, active_index=3, done=True)
 
-        st.markdown('<div class="section-title">3. 추천 숏폼 하이라이트 (3선)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">✨ 추천 숏폼 하이라이트 (3선)</div>', unsafe_allow_html=True)
 
         h_cols = st.columns(3)
         for index, highlight in enumerate(highlights):
             with h_cols[index % 3]:
                 render_highlight_card(index, highlight)
 
-        st.markdown('<div class="section-title">4. EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">💾 EDIUS 연동 파일 다운로드</div>', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
 
-        # 수정: HTML div wrapping 제거 및 Streamlit 기본 레이아웃 활용 (빈 박스 오류 방지)
         with st.container(border=True):
             info_col, dl_col = st.columns([3, 1])
             with info_col:
@@ -376,7 +373,7 @@ def main():
                     </div>
                 """, unsafe_allow_html=True)
             with dl_col:
-                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True) # 수직 중앙 정렬용 여백
+                st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True) 
                 st.download_button("EDL 파일 다운로드", data=edl_content, file_name=edl_filename, mime="text/plain", use_container_width=True)
 
     except Exception as e:
