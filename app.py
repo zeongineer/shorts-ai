@@ -639,7 +639,7 @@ def main():
         video_fps = st.session_state.get("video_fps", 29.97)
         source_filename = st.session_state.get("source_filename", "source.mp4")
 
-        # 1. 화면을 가로로 2분할 (좌측: 토픽 리스트, 우측: EDL 파일 생성 패널) 비율 약 7:3
+        # 1. 화면 가로 2분할 (좌측 토픽 리스트 7 : 우측 EDL 패널 3)
         left_col, right_col = st.columns([7, 3], gap="large")
 
         with left_col:
@@ -654,7 +654,7 @@ def main():
                 reason = html.escape(str(topic.get("reason", "-")))
                 tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)} ({duration}초)"
 
-                # 2. 좌측 영역: 카드 형태로 체크박스, 번호, 구간, 길이, 제목, 요약 내용 반영
+                # 2. 좌측 영역: 카드 내 체크박스, 번호, 구간, 길이, 제목, 자막 요약 미리보기
                 card_col1, card_col2 = st.columns([0.08, 0.92])
                 with card_col1:
                     is_selected = st.checkbox("선택", value=True, key=f"topic_chk_{index}", label_visibility="collapsed")
@@ -679,7 +679,7 @@ def main():
                     selected_indices.append(index)
 
         with right_col:
-            # 3. 우측 영역: EDL 파일 생성 패널 (st.container 박스 스타일 및 정보성 텍스트 키-값 정렬)
+            # 3. 우측 영역: 카드 형태의 EDL 파일 생성 패널
             with st.container():
                 st.markdown(
                     f'<div class="panel-box">'
@@ -703,8 +703,8 @@ def main():
 
                 default_edl_name = f"{os.path.splitext(source_filename)[0]}_selected.edl"
                 
-                # 구문 오류(SyntaxError) 수정 완료: := 대입 표현식 대신 안전하게 일반 변수 할당 방식 처리
-                safe_filename = st.text_input("파일 명 입력", value=default_edl_name)
+                # 오류 방지: 일반 할당문으로 안전하게 파일명 확장자 처리
+                safe_filename = st.text_input("파일명 입력", value=default_edl_name)
                 if not safe_filename.endswith(".edl"):
                     safe_filename += ".edl"
 
