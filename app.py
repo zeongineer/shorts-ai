@@ -65,6 +65,7 @@ _ICON_PATHS = {
     "clock": '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
     "timer": '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
     "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
+    "play": '<polygon points="5 3 19 12 5 21 5 3"/>',
 }
 
 def icon(name: str, size: int = 16, color: str = "currentColor", stroke_width: float = 2) -> str:
@@ -175,8 +176,8 @@ st.markdown(
     .tc-block {{ display: flex; align-items: center; gap: 6px; }}
     
     .h-reason {{
-        margin-top: 8px; background:var(--brand-tint); border-radius:8px; border: none;
-        padding:16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
+        margin-top: 4px; background:var(--brand-tint); border-radius:8px; border: none;
+        padding:14px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
     }}
     .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:4px; font-weight: 600; }}
 
@@ -285,17 +286,11 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
     placeholder.markdown(html_str, unsafe_allow_html=True)
 
 def _is_ntsc_rate(fps: float) -> bool:
-    """23.976 / 29.97 / 59.94 등 NTSC 계열(1000/1001) 프레임레이트인지 판별.
-    한국 방송 소스는 대부분 이 계열입니다."""
     return any(abs(fps - r) < 0.05 for r in (23.976, 29.97, 59.94))
 
-
 def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
-    """SMPTE 드롭프레임 타임코드 (29.97fps 등 NTSC 계열용).
-    실제 재생시간과 어긋나지 않도록 매분 첫 2프레임(60fps 계열은 4프레임)을
-    10의 배수 분을 제외하고 건너뛰는 표준 알고리즘입니다."""
     seconds = max(0.0, float(seconds))
-    drop_frames = 2 if nominal_fps == 30 else 4  # 30fps 계열: 2프레임, 60fps 계열: 4프레임
+    drop_frames = 2 if nominal_fps == 30 else 4
     frames_per_min = nominal_fps * 60
     frames_per_10min = frames_per_min * 10
 
@@ -314,11 +309,7 @@ def _seconds_to_drop_frame_tc(seconds: float, nominal_fps: int) -> str:
     hh = total_minutes // 60
     return f"{hh:02d}:{mm:02d}:{ss:02d};{ff:02d}"
 
-
 def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
-    """실제 소스 fps에 맞춰 CMX3600 타임코드 문자열을 생성합니다.
-    NTSC 계열(29.97/23.976/59.94)은 드롭프레임(';' 구분자),
-    그 외 정수 fps(24/25/30 등)는 논드롭(':' 구분자)으로 계산합니다."""
     seconds = max(0.0, float(seconds))
     if _is_ntsc_rate(fps):
         nominal = 60 if abs(fps - 59.94) < 0.05 else 30
@@ -332,31 +323,18 @@ def seconds_to_timecode(seconds: float, fps: float = 29.97) -> str:
     ff = total_frames % nominal
     return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
 
-
 def _derive_reel_name(filename: str) -> str:
-    """CMX3600 릴 이름은 관례적으로 8자 이내 영숫자 대문자를 씁니다.
-    업로드된 파일명에서 유추해, EDIUS에서 어떤 소스인지 알아보기 쉽게 합니다."""
     base = os.path.splitext(filename)[0]
     base = re.sub(r"[^A-Za-z0-9]", "", base).upper()
     return base[:8] if base else "REEL001"
 
-
 def generate_edl(highlights: list, source_filename: str = "source.mp4", fps: float = 29.97) -> str:
-    """CMX3600 형식 EDL 생성.
-    - REC IN/OUT은 SRC와 별개로, 새 타임라인 위에 순차적으로(누적) 배치합니다.
-      (SRC와 REC를 동일하게 두면 클립들이 원본상의 원래 위치에 각각 떨어져
-      배치되어 하이라이트가 이어붙지 않습니다.)
-    - 트랙은 AA/V(오디오+비디오)로 지정해 컨폼 시 소리가 함께 따라오게 합니다.
-    - 실제 소스 fps에 맞는 타임코드(드롭프레임/논드롭)를 사용합니다.
-    - SOURCE FILE 코멘트로 원본 파일명을 남겨, EDIUS에서 릴 이름이 자동
-      매칭되지 않을 경우 수동으로 연결할 수 있게 합니다.
-    """
     is_df = _is_ntsc_rate(fps)
     fcm = "DROP FRAME" if is_df else "NON-DROP FRAME"
     reel_name = _derive_reel_name(source_filename)
 
     edl_lines = ["TITLE: AI_SHORTFORM_EDL", f"FCM: {fcm}", ""]
-    rec_cursor = 0.0  # 새 타임라인(REC) 누적 위치(초)
+    rec_cursor = 0.0
 
     for i, hl in enumerate(highlights, 1):
         src_start = float(hl.get("start_time", 0.0))
@@ -378,8 +356,6 @@ def generate_edl(highlights: list, source_filename: str = "source.mp4", fps: flo
     return "\n".join(edl_lines)
 
 def get_media_duration(file_path: str) -> float:
-    """ffprobe로 미디어 전체 길이(초)를 조회합니다. 하이라이트 구간이
-    영상 실제 길이를 벗어나지 않도록 검증하는 데 사용됩니다."""
     cmd = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", file_path,
@@ -390,11 +366,7 @@ def get_media_duration(file_path: str) -> float:
     except (subprocess.CalledProcessError, ValueError):
         return 0.0
 
-
 def get_video_fps(file_path: str) -> float:
-    """ffprobe로 실제 영상 프레임레이트를 조회합니다. EDL의 타임코드가
-    실제 소스와 어긋나지 않으려면 이 값을 써야 합니다.
-    조회 실패(오디오 전용 파일 등) 시 한국 방송 표준인 29.97fps로 폴백합니다."""
     cmd = [
         "ffprobe", "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=r_frame_rate",
@@ -414,11 +386,7 @@ def get_video_fps(file_path: str) -> float:
     except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
         return 29.97
 
-
 def prepare_audio_for_groq(input_file_path: str) -> str:
-    """Groq API 업로드용으로 16kHz 모노 저비트레이트 MP3로 변환합니다.
-    (파일 용량을 최소화해 업로드 시간과 API 처리 시간을 줄입니다.)
-    packages.txt의 ffmpeg 시스템 패키지가 설치되어 있어야 동작합니다."""
     output_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     output_path = output_temp_file.name
     output_temp_file.close()
@@ -434,14 +402,9 @@ def prepare_audio_for_groq(input_file_path: str) -> str:
     except subprocess.CalledProcessError as e:
         if os.path.exists(output_path):
             os.remove(output_path)
-        error_message = e.stderr.decode("utf-8", errors="ignore")
-        raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{error_message}")
-
+        raise RuntimeError(f"오디오 변환(ffmpeg) 실패:\n{e.stderr.decode('utf-8', errors='ignore')}")
 
 def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> list:
-    """업로드된 실제 미디어 파일을 ffmpeg로 오디오 변환 후 Groq의 Whisper API로
-    STT를 수행하여, 타임코드가 포함된 자막 세그먼트를 반환합니다.
-    (로컬 torch/whisper 대신 API를 쓰므로 배포 용량과 메모리 부담이 거의 없습니다.)"""
     suffix = os.path.splitext(file_name)[1] or ".mp4"
     raw_path = None
     audio_path = None
@@ -481,10 +444,56 @@ def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> 
                 except OSError:
                     pass
 
+def generate_preview_clip(input_file_path: str, start_time: float, end_time: float) -> str:
+    """미리보기용으로 원본 전체 대신 해당 하이라이트 구간만 H.264/AAC MP4로 잘라내어 인코딩합니다."""
+    output_temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+    output_path = output_temp.name
+    output_temp.close()
+
+    duration = max(1.0, end_time - start_time)
+    cmd = [
+        "ffmpeg", "-y", "-ss", str(start_time), "-i", input_file_path,
+        "-t", str(duration), "-c:v", "libx264", "-preset", "ultrafast",
+        "-crf", "28", "-c:a", "aac", "-b:a", "96k", "-pix_fmt", "yuv420p",
+        output_path
+    ]
+    try:
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        return output_path
+    except subprocess.CalledProcessError:
+        if os.path.exists(output_path):
+            os.remove(output_path)
+        return ""
+
+def generate_vtt_subtitles(segments: list, clip_start: float, clip_end: float) -> str:
+    """해당 하이라이트 구간에 포함되는 자막만 추출하여 WebVTT(.vtt) 형식으로 변환합니다."""
+    vtt_lines = ["WEBVTT", ""]
+    idx = 1
+    for seg in segments:
+        s = seg.get("start", 0.0)
+        e = seg.get("end", 0.0)
+        text = seg.get("text", "")
+
+        # 클립 범위와 겹치는 자막만 포함하되, 시간축은 클립 시작점 기준(0초부터)으로 조정
+        if e >= clip_start and s <= clip_end:
+            rel_s = max(0.0, s - clip_start)
+            rel_e = max(rel_s + 0.5, e - clip_start)
+            
+            def fmt_time(sec):
+                h = int(sec // 3600)
+                m = int((sec % 3600) // 60)
+                s_ = int(sec % 60)
+                ms = int(round((sec - int(sec)) * 1000))
+                return f"{h:02d}:{m:02d}:{s_:02d}.{ms:03d}"
+
+            vtt_lines.append(f"{idx}")
+            vtt_lines.append(f"{fmt_time(rel_s)} --> {fmt_time(rel_e)}")
+            vtt_lines.append(text)
+            vtt_lines.append("")
+            idx += 1
+    return "\n".join(vtt_lines)
 
 def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.0) -> list:
-    """Gemini가 반환한 구간을 30~60초 범위 및 실제 영상 길이 안으로 보정합니다.
-    이 검증이 없으면 모델이 규칙을 무시한 구간을 그대로 EDL에 반영하게 됩니다."""
     fixed_list = []
     if not isinstance(raw_highlights, list):
         return fixed_list
@@ -528,14 +537,8 @@ def sanitize_and_fix_highlights(raw_highlights: list, media_duration: float = 0.
 
     return fixed_list
 
-
 def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
-    """Gemini API를 사용하여 가장 임팩트 있는 숏폼 구간을 추출.
-    구조화 출력(response_schema)과 모델 폴백으로 실패율을 낮추고,
-    실패 시 가짜 결과를 숨기지 않고 예외를 그대로 올려 호출부(main)에서
-    사용자에게 실제 오류를 보여주도록 합니다."""
     client = genai.Client(api_key=api_key)
-    # gemini-2.5-flash는 신규 사용자에게 더 이상 제공되지 않아(404) 폴백 목록에서 제외.
     preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
 
     formatted_transcript = "\n".join(
@@ -585,7 +588,7 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
             fixed = sanitize_and_fix_highlights(raw_data, media_duration)
             if len(fixed) >= 1:
                 return fixed[:3]
-            failures.append(f"{model_name}: 유효한 구간을 반환하지 않음 (원본 {len(raw_data) if isinstance(raw_data, list) else '?'}개 중 0개 통과)")
+            failures.append(f"{model_name}: 유효한 구간을 반환하지 않음")
         except Exception as error:
             failures.append(f"{model_name}: {error}")
             continue
@@ -594,9 +597,9 @@ def run_gemini_highlight_extraction(api_key: str, transcript_segments: list, med
     raise RuntimeError(f"하이라이트 추출에 실패했습니다 → {detail}")
 
 # ==============================================================================
-# 5. 하이라이트 카드 렌더링
+# 5. 하이라이트 카드 렌더링 및 미리보기
 # ==============================================================================
-def render_highlight_card(index: int, highlight: dict, fps: float = 29.97) -> None:
+def render_highlight_card(index: int, highlight: dict, segments: list, source_path: str, fps: float = 29.97) -> None:
     start_sec = float(highlight.get("start_time", 0.0))
     end_sec = float(highlight.get("end_time", 0.0))
     duration = round(end_sec - start_sec, 1)
@@ -604,7 +607,7 @@ def render_highlight_card(index: int, highlight: dict, fps: float = 29.97) -> No
     reason = html.escape(str(highlight.get("reason", "-")))
 
     st.markdown(
-        f'<article class="h-card" style="height:100%;">'
+        f'<article class="h-card">'
         f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
         f'<h3>{title}</h3>'
         f'<div class="h-row">'
@@ -615,6 +618,37 @@ def render_highlight_card(index: int, highlight: dict, fps: float = 29.97) -> No
         f'</article>',
         unsafe_allow_html=True,
     )
+
+    preview_key = f"preview_{index}"
+    is_preview_open = st.session_state.get(preview_key, False)
+
+    if not is_preview_open:
+        if st.button(f"▶ 재생 및 자막 미리보기 #{index + 1}", key=f"btn_{index}", use_container_width=True):
+            st.session_state[preview_key] = True
+            st.rerun()
+    else:
+        if st.button(f"▲ 미리보기 닫기 #{index + 1}", key=f"close_{index}", use_container_width=True):
+            st.session_state[preview_key] = False
+            st.rerun()
+        
+        with st.spinner("미리보기 클립 및 자막 생성 중..."):
+            clip_path = generate_preview_clip(source_path, start_sec, end_sec)
+            vtt_content = generate_vtt_subtitles(segments, start_sec, end_sec)
+
+        if clip_path and os.path.exists(clip_path):
+            try:
+                st.video(clip_path, subtitles=vtt_content if vtt_content.count("-->") > 0 else None)
+            except TypeError:
+                # 구버전 Streamlit 호환용 폴백
+                st.video(clip_path)
+                accessible_alert("현재 사용 중인 Streamlit 버전은 자막 오버레이(subtitles 파라미터)를 직접 지원하지 않아 영상만 재생됩니다.", kind="info")
+            finally:
+                try:
+                    os.remove(clip_path)
+                except OSError:
+                    pass
+        else:
+            accessible_alert("미리보기 클립을 생성하지 못했습니다.", kind="error")
 
 # ==============================================================================
 # 6. 메인 애플리케이션
@@ -637,58 +671,83 @@ def main():
     groq_client = Groq(api_key=groq_api_key)
 
     st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">미디어 소스 업로드</p>', unsafe_allow_html=True)
-    
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
     if uploaded_file:
+        file_bytes = uploaded_file.read()
+        
+        # 파일이 변경되면 기존 결과 초기화
+        if st.session_state.get("last_uploaded_name") != uploaded_file.name:
+            st.session_state["last_uploaded_name"] = uploaded_file.name
+            st.session_state["highlights"] = None
+            st.session_state["segments"] = None
+            st.session_state["video_fps"] = 29.97
+            st.session_state["edl_content"] = None
+
         start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
     else:
         start_button = False
+        st.session_state.clear()
         return
     
     st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
     
     pipe_placeholder = st.empty()
-    render_pipeline(pipe_placeholder, active_index=-1)
 
-    if not start_button:
-        return
+    if start_button:
+        raw_input_path = None
+        try:
+            render_pipeline(pipe_placeholder, active_index=0)
+            
+            suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(file_bytes)
+                raw_input_path = tmp.name
+            
+            # 임시 파일 경로를 세션에 저장해 미리보기 재생 시 사용
+            st.session_state["source_path"] = raw_input_path
+            media_duration = get_media_duration(raw_input_path)
+            video_fps = get_video_fps(raw_input_path)
+            st.session_state["video_fps"] = video_fps
 
-    raw_input_path = None
-    try:
-        render_pipeline(pipe_placeholder, active_index=0)
-        file_bytes = uploaded_file.read()
+            render_pipeline(pipe_placeholder, active_index=1)
+            segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
+            st.session_state["segments"] = segments
 
-        # 하이라이트 구간이 실제 영상 길이를 벗어나지 않도록 미리 길이를 조회
-        suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(file_bytes)
-            raw_input_path = tmp.name
-        media_duration = get_media_duration(raw_input_path)
-        video_fps = get_video_fps(raw_input_path)
+            if not segments:
+                raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
-        render_pipeline(pipe_placeholder, active_index=1)
-        segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
+            render_pipeline(pipe_placeholder, active_index=2)
+            highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
+            st.session_state["highlights"] = highlights
+            
+            render_pipeline(pipe_placeholder, active_index=3)
+            edl_content = generate_edl(highlights, source_filename=uploaded_file.name, fps=video_fps)
+            st.session_state["edl_content"] = edl_content
+            render_pipeline(pipe_placeholder, active_index=3, done=True)
 
-        if not segments:
-            raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
+        except Exception as e:
+            accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
+            return
 
-        render_pipeline(pipe_placeholder, active_index=2)
-        highlights = run_gemini_highlight_extraction(gemini_api_key, segments, media_duration)
-        
-        render_pipeline(pipe_placeholder, active_index=3)
-        edl_content = generate_edl(highlights, source_filename=uploaded_file.name, fps=video_fps)
+    # st.session_state에 데이터가 있으면 화면에 결과 렌더링 (재실행되어도 유지됨)
+    if st.session_state.get("highlights"):
         render_pipeline(pipe_placeholder, active_index=3, done=True)
-
         st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
+
+        highlights = st.session_state["highlights"]
+        segments = st.session_state.get("segments", [])
+        source_path = st.session_state.get("source_path", "")
+        video_fps = st.session_state.get("video_fps", 29.97)
 
         h_cols = st.columns(3)
         for index, highlight in enumerate(highlights):
             with h_cols[index % 3]:
-                render_highlight_card(index, highlight, fps=video_fps)
+                render_highlight_card(index, highlight, segments, source_path, fps=video_fps)
 
         st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
         edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_shortform.edl"
+        edl_content = st.session_state["edl_content"]
 
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
         href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
@@ -706,15 +765,6 @@ def main():
             f'</div>', 
             unsafe_allow_html=True
         )
-
-    except Exception as e:
-        accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
-    finally:
-        if raw_input_path and os.path.exists(raw_input_path):
-            try:
-                os.remove(raw_input_path)
-            except OSError:
-                pass
 
 if __name__ == "__main__":
     main()
