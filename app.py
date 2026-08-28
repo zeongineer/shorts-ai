@@ -68,7 +68,6 @@ st.markdown(
         --text-secondary:#64748B;
         --green:#10B981;
         --gray-light:#F1F5F9;
-        /* 그림자 범위 확대 및 부드럽게 처리 */
         --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
     }}
 
@@ -81,7 +80,6 @@ st.markdown(
         padding-top: 3rem !important;
     }}
 
-    /* [개선 4] 컴포넌트 간 간격 압축 */
     div[data-testid="stVerticalBlock"] {{ gap: 0.75rem !important; }}
 
     .app-header {{ display:flex; align-items:center; gap:16px; margin-bottom: 8px; }}
@@ -105,7 +103,6 @@ st.markdown(
         letter-spacing:-0.3px; display: flex; align-items: center; gap: 8px;
     }}
 
-    /* [개선 1] 파일 업로더 커스텀 (점선 완화 및 배경 통일) */
     [data-testid="stFileUploader"] {{
         background-color: var(--bg-base);
         border: 2px dashed #CBD5E1 !important;
@@ -115,7 +112,6 @@ st.markdown(
     }}
     [data-testid="stFileUploader"]:hover {{ border-color: var(--brand) !important; background-color: var(--brand-tint); }}
 
-    /* [개선 3] Stepper 형태의 프로세스 현황 디자인 */
     .stepper-container {{
         display: flex; justify-content: space-between; position: relative; 
         margin: 24px 0 36px; padding: 0 20px;
@@ -140,7 +136,6 @@ st.markdown(
     .step-node.active .step-circle {{ border-color: var(--brand); color: var(--brand); box-shadow: 0 0 0 4px var(--brand-tint); }}
     .step-node.active .step-label {{ color: var(--brand); }}
 
-    /* [개선 2 & 4] 하이라이트 카드 (모서리/그림자 세밀화 및 위계 정돈) */
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:16px;
         padding:24px; box-shadow: var(--shadow-md);
@@ -167,7 +162,6 @@ st.markdown(
     }}
     .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:4px; font-weight: 600; }}
 
-    /* [개선 4] 다운로드 섹션 배경 톤다운 처리 */
     .dl-wrapper {{ 
         flex-direction: row; align-items: center; justify-content: space-between; 
         background-color: var(--brand-tint); border-color: #DBEAFE;
@@ -263,12 +257,13 @@ def render_pipeline(placeholder, active_index: int, done: bool = False) -> None:
             state = "pending"
             icon_html = f"{i+1}"
 
-        html_str += f"""
-            <div class="step-node {state}">
-                <div class="step-circle">{icon_html}</div>
-                <div class="step-label">{step['title']}</div>
-            </div>
-        """
+        # 수정됨: 마크다운 코드 블록 오류 방지를 위해 들여쓰기 제거
+        html_str += (
+            f'<div class="step-node {state}">'
+            f'<div class="step-circle">{icon_html}</div>'
+            f'<div class="step-label">{step["title"]}</div>'
+            f'</div>'
+        )
     html_str += '</div>'
     placeholder.markdown(html_str, unsafe_allow_html=True)
 
@@ -308,20 +303,17 @@ def render_highlight_card(index: int, highlight: dict) -> None:
     title = html.escape(str(highlight.get("main_title", f"하이라이트 {index + 1}")))
     reason = html.escape(str(highlight.get("reason", "-")))
 
+    # 수정됨: 마크다운 코드 블록 오류 방지를 위해 들여쓰기 제거
     st.markdown(
-        f"""
-        <article class="h-card" style="height:100%;">
-            <div class="h-top">
-                <span class="step-num">{index + 1}</span>
-            </div>
-            <h3>{title}</h3>
-            <div class="h-row">
-                <div class="tc-block">{icon('clock', 14, 'currentColor')} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>
-                <div class="tc-block" style="color:var(--brand); font-weight:500;">{icon('timer', 14, 'currentColor')} {duration}초</div>
-            </div>
-            <div class="h-reason"><b>선정 이유</b>{reason}</div>
-        </article>
-        """,
+        f'<article class="h-card" style="height:100%;">'
+        f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
+        f'<h3>{title}</h3>'
+        f'<div class="h-row">'
+        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec)} ~ {seconds_to_timecode(end_sec)}</div>'
+        f'<div class="tc-block" style="color:var(--brand); font-weight:500;">{icon("timer", 14, "currentColor")} {duration}초</div>'
+        f'</div>'
+        f'<div class="h-reason"><b>선정 이유</b>{reason}</div>'
+        f'</article>',
         unsafe_allow_html=True,
     )
 
@@ -333,10 +325,8 @@ def main():
 
     st.markdown('<div class="section-title">미디어 소스 업로드</div>', unsafe_allow_html=True)
     
-    # [개선 1] 컬럼 분리 없이 100% 너비의 Dropzone 형태로 통합
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
-    # 파일이 업로드된 상태에서만 시작 버튼 렌더링 (자연스러운 상태 분리)
     if uploaded_file:
         start_button = st.button("추출 및 EDL 생성 시작", type="primary", use_container_width=True)
     else:
@@ -375,20 +365,20 @@ def main():
         b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
         href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
 
-        st.markdown(f"""
-            <div class="h-card dl-wrapper">
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <div class="download-icon-box">{icon('doc', 24, BRAND)}</div>
-                    <div>
-                        <div class="file-name">{html.escape(edl_filename)}</div>
-                        <div class="file-meta">CMX 3600 Format 타임코드 데이터</div>
-                    </div>
-                </div>
-                <a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">
-                    EDL 파일 다운로드
-                </a>
-            </div>
-        """, unsafe_allow_html=True)
+        # 수정됨: 마크다운 코드 블록 오류 방지를 위해 들여쓰기 제거
+        st.markdown(
+            f'<div class="h-card dl-wrapper">'
+            f'<div style="display: flex; align-items: center; gap: 16px;">'
+            f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
+            f'<div>'
+            f'<div class="file-name">{html.escape(edl_filename)}</div>'
+            f'<div class="file-meta">CMX 3600 Format 타임코드 데이터</div>'
+            f'</div>'
+            f'</div>'
+            f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">EDL 파일 다운로드</a>'
+            f'</div>', 
+            unsafe_allow_html=True
+        )
 
     except Exception as e:
         accessible_alert("처리 중 문제가 발생했습니다. 미디어 파일을 확인해주세요.", kind="error", icon_name="x-circle")
