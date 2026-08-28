@@ -3,10 +3,10 @@ maxUploadSize = 1024
 
 [theme]
 base = "light"
-primaryColor = "#BE123C"
-backgroundColor = "#F4F5F7"
+primaryColor = "#1C9DE9"
+backgroundColor = "#F4F6F8"
 secondaryBackgroundColor = "#FFFFFF"
-textColor = "#12151C"
+textColor = "#10161D"
 font = "sans serif"
 
 # 참고: [theme] 섹션을 명시적으로 지정하면 Streamlit 우측 상단 메뉴에서
