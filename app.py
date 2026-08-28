@@ -156,30 +156,30 @@ st.markdown(
 
     .h-card {{
         background:var(--surface); border:1px solid var(--border); border-radius:16px;
-        padding:24px; box-shadow: var(--shadow-md);
-        display:flex; flex-direction:column; gap:12px;
-        margin-bottom: 16px;
+        padding:20px 24px; box-shadow: var(--shadow-md);
+        display:flex; flex-direction:column; gap:10px;
+        margin-bottom: 12px;
     }}
-    .h-top {{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px; }}
-    .h-card h3 {{ font-size:1.1rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
+    .h-top {{ display:flex; justify-content:space-between; align-items:center; }}
+    .h-card h3 {{ font-size:1.05rem; margin:0; line-height:1.4; color:var(--text-primary); font-weight:700; }}
     
     .step-num {{ 
         display: inline-flex; align-items: center; justify-content: center;
-        width: 26px; height: 26px; border-radius: 50%;
-        background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.85rem;
+        width: 24px; height: 24px; border-radius: 50%;
+        background: var(--brand); color: #FFF; font-weight: 700; font-size: 0.8rem;
     }}
 
     .h-row {{
         display:flex; align-items:center; gap:12px; font-family:'IBM Plex Mono', monospace;
-        font-size:0.85rem; color:var(--text-secondary); margin-bottom: 4px;
+        font-size:0.85rem; color:var(--text-secondary);
     }}
     .tc-block {{ display: flex; align-items: center; gap: 6px; }}
     
     .h-reason {{
-        margin-top: 8px; background:var(--brand-tint); border-radius:8px; border: none;
-        padding:16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.6;
+        background:var(--brand-tint); border-radius:8px; border: none;
+        padding:12px 16px; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;
     }}
-    .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:4px; font-weight: 600; }}
+    .h-reason b {{ color:var(--brand-dark); display:block; margin-bottom:2px; font-weight: 600; }}
 
     .dl-wrapper {{ 
         flex-direction: row; align-items: center; justify-content: space-between; 
@@ -246,12 +246,12 @@ def render_header() -> None:
         '<header class="app-header">'
         '<div class="app-title-group">'
         '<h1 class="app-title">뉴스 주제별 구간 자동 분할기</h1>'
-        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 자막을 분석하여 전체 영상의 주제별 단위로 구간을 빠짐없이 자동 분할합니다.</p>'
+        '<p class="app-sub">뉴스 미디어 파일을 업로드하면 전체 주제별로 구간을 분할하고, 원하는 구간만 선택하여 EDL 파일로 생성할 수 있습니다.</p>'
         '</div>'
         '</header>',
         unsafe_allow_html=True,
     )
-    accessible_alert("처리 완료 시 전체 분할된 구간을 편집기(EDIUS 등)에 순차적으로 임포트할 수 있는 EDL 파일이 제공됩니다.", kind="info", icon_name="bulb")
+    accessible_alert("원하는 주제 구간을 선택(체크)한 뒤 하단의 EDL 파일 생성 버튼을 눌러주세요.", kind="info", icon_name="bulb")
 
 # ==============================================================================
 # 4. 파이프라인 및 방송 데이터 포맷팅
@@ -454,8 +454,6 @@ def extract_transcript(groq_client: Groq, file_bytes: bytes, file_name: str) -> 
 
 
 def sanitize_and_fix_topics(raw_topics: list, media_duration: float = 0.0) -> list:
-    """Gemini가 반환한 주제별 구간이 전체 영상 범위를 벗어나지 않도록 하고,
-    시간순으로 올바르게 정렬 및 보정합니다."""
     fixed_list = []
     if not isinstance(raw_topics, list):
         return fixed_list
@@ -483,13 +481,11 @@ def sanitize_and_fix_topics(raw_topics: list, media_duration: float = 0.0) -> li
         except (TypeError, ValueError):
             continue
 
-    # 시작 시간 순으로 정렬
     fixed_list.sort(key=lambda x: x["start_time"])
     return fixed_list
 
 
 def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_duration: float = 0.0) -> list:
-    """Gemini API를 사용하여 뉴스 영상 전체를 주제별로 빠짐없이 구간 분할."""
     client = genai.Client(api_key=api_key)
     preferred_models = ["gemini-3.6-flash", "gemini-3.7-flash"]
 
@@ -547,30 +543,7 @@ def run_gemini_topic_splitting(api_key: str, transcript_segments: list, media_du
     raise RuntimeError(f"주제별 구간 분할에 실패했습니다 → {detail}")
 
 # ==============================================================================
-# 5. 토픽 구간 카드 렌더링
-# ==============================================================================
-def render_topic_card(index: int, topic: dict, fps: float = 29.97) -> None:
-    start_sec = float(topic.get("start_time", 0.0))
-    end_sec = float(topic.get("end_time", 0.0))
-    duration = round(end_sec - start_sec, 1)
-    title = html.escape(str(topic.get("main_title", f"주제 {index + 1}")))
-    reason = html.escape(str(topic.get("reason", "-")))
-
-    st.markdown(
-        f'<article class="h-card">'
-        f'<div class="h-top"><span class="step-num">{index + 1}</span></div>'
-        f'<h3>{title}</h3>'
-        f'<div class="h-row">'
-        f'<div class="tc-block">{icon("clock", 14, "currentColor")} {seconds_to_timecode(start_sec, fps)} ~ {seconds_to_timecode(end_sec, fps)}</div>'
-        f'<div class="tc-block" style="color:var(--brand); font-weight:500;">{icon("timer", 14, "currentColor")} {duration}초</div>'
-        f'</div>'
-        f'<div class="h-reason"><b>주제 요약</b>{reason}</div>'
-        f'</article>',
-        unsafe_allow_html=True,
-    )
-
-# ==============================================================================
-# 6. 메인 애플리케이션
+# 5. 메인 애플리케이션
 # ==============================================================================
 def main():
     render_header()
@@ -594,9 +567,12 @@ def main():
     uploaded_file = st.file_uploader("파일 업로드", type=["mp4", "mp3", "mov"], label_visibility="collapsed")
     
     if uploaded_file:
-        start_button = st.button("분할 및 EDL 생성 시작", type="primary", use_container_width=True)
+        start_button = st.button("분할 및 구간 분석 시작", type="primary", use_container_width=True)
     else:
         start_button = False
+        # 세션 초기화
+        if "topics" in st.session_state:
+            del st.session_state["topics"]
         return
     
     st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
@@ -604,68 +580,115 @@ def main():
     pipe_placeholder = st.empty()
     render_pipeline(pipe_placeholder, active_index=-1)
 
-    if not start_button:
-        return
+    # 새로 분석 버튼을 누른 경우 처리
+    if start_button:
+        raw_input_path = None
+        try:
+            render_pipeline(pipe_placeholder, active_index=0)
+            file_bytes = uploaded_file.read()
 
-    raw_input_path = None
-    try:
-        render_pipeline(pipe_placeholder, active_index=0)
-        file_bytes = uploaded_file.read()
+            suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(file_bytes)
+                raw_input_path = tmp.name
+            media_duration = get_media_duration(raw_input_path)
+            video_fps = get_video_fps(raw_input_path)
 
-        suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(file_bytes)
-            raw_input_path = tmp.name
-        media_duration = get_media_duration(raw_input_path)
-        video_fps = get_video_fps(raw_input_path)
+            render_pipeline(pipe_placeholder, active_index=1)
+            segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
 
-        render_pipeline(pipe_placeholder, active_index=1)
-        segments = extract_transcript(groq_client, file_bytes, uploaded_file.name)
+            if not segments:
+                raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
 
-        if not segments:
-            raise RuntimeError("음성에서 자막을 추출하지 못했습니다. 오디오 트랙을 확인해주세요.")
+            render_pipeline(pipe_placeholder, active_index=2)
+            topics = run_gemini_topic_splitting(gemini_api_key, segments, media_duration)
+            
+            render_pipeline(pipe_placeholder, active_index=3, done=True)
 
-        render_pipeline(pipe_placeholder, active_index=2)
-        topics = run_gemini_topic_splitting(gemini_api_key, segments, media_duration)
-        
-        render_pipeline(pipe_placeholder, active_index=3)
-        edl_content = generate_edl(topics, source_filename=uploaded_file.name, fps=video_fps)
+            # 결과를 세션에 저장하여 체크박스 클릭 시 리프레시되어 날아가는 현상 방지
+            st.session_state["topics"] = topics
+            st.session_state["video_fps"] = video_fps
+            st.session_state["source_filename"] = uploaded_file.name
+
+        except Exception as e:
+            accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
+            return
+        finally:
+            if raw_input_path and os.path.exists(raw_input_path):
+                try:
+                    os.remove(raw_input_path)
+                except OSError:
+                    pass
+
+    # 세션에 분석 결과가 있는 경우 화면에 렌더링 및 선택 버튼 제공
+    if "topics" in st.session_state and st.session_state["topics"]:
         render_pipeline(pipe_placeholder, active_index=3, done=True)
+        topics = st.session_state["topics"]
+        video_fps = st.session_state.get("video_fps", 29.97)
+        source_filename = st.session_state.get("source_filename", "source.mp4")
 
-        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-
-        # 주제별로 전체 분할된 구간들을 세로로 보기 쉽게 순서대로 렌더링
+        st.markdown('<p style="font-size:1.1rem; font-weight:700; margin: 24px 0 12px; color:var(--text-primary);">추출된 주제 구간 선택 (원하는 항목 체크)</p>', unsafe_allow_html=True)
+        
+        selected_indices = []
         for index, topic in enumerate(topics):
-            render_topic_card(index, topic, fps=video_fps)
+            start_sec = float(topic.get("start_time", 0.0))
+            end_sec = float(topic.get("end_time", 0.0))
+            duration = round(end_sec - start_sec, 1)
+            title = html.escape(str(topic.get("main_title", f"주제 {index + 1}")))
+            reason = html.escape(str(topic.get("reason", "-")))
+            tc_str = f"{seconds_to_timecode(start_sec, video_fps)} ~ {seconds_to_timecode(end_sec, video_fps)} ({duration}초)"
 
-        st.markdown('<hr style="margin: 32px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
-        edl_filename = f"{os.path.splitext(uploaded_file.name)[0]}_topic_split.edl"
+            # 개별 선택을 위한 체크박스 추가 (기본값 True로 전체 선택)
+            col1, col2 = st.columns([0.05, 0.95])
+            with col1:
+                is_selected = st.checkbox("선택", value=True, key=f"topic_chk_{index}", label_visibility="collapsed")
+            with col2:
+                st.markdown(
+                    f'<article class="h-card" style="margin-bottom:0px;">'
+                    f'<div class="h-top">'
+                    f'<div style="display:flex; align-items:center; gap:8px;">'
+                    f'<span class="step-num">{index + 1}</span>'
+                    f'<h3>{title}</h3>'
+                    f'</div>'
+                    f'</div>'
+                    f'<div class="h-row">'
+                    f'<div class="tc-block">{icon("clock", 14, "currentColor")} {tc_str}</div>'
+                    f'</div>'
+                    f'<div class="h-reason"><b>주제 요약</b>{reason}</div>'
+                    f'</article>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown('<div style="margin-bottom: 8px;"></div>', unsafe_allow_html=True)
+            
+            if is_selected:
+                selected_indices.append(index)
 
-        b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
-        href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
+        st.markdown('<hr style="margin: 24px 0; border: none; border-top: 1px solid var(--border);">', unsafe_allow_html=True)
 
-        st.markdown(
-            f'<div class="h-card dl-wrapper">'
-            f'<div style="display: flex; align-items: center; gap: 16px;">'
-            f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
-            f'<div>'
-            f'<div class="file-name">{html.escape(edl_filename)}</div>'
-            f'<div class="file-meta">전체 주제별 분할 타임코드 데이터 (CMX 3600)</div>'
-            f'</div>'
-            f'</div>'
-            f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">EDL 파일 다운로드</a>'
-            f'</div>', 
-            unsafe_allow_html=True
-        )
+        if not selected_indices:
+            accessible_alert("선택된 구간이 없습니다. EDL 파일을 생성하려면 최소 1개 이상의 주제를 선택해주세요.", kind="error", icon_name="alert-triangle")
+        else:
+            # 선택된 구간만 필터링
+            filtered_topics = [topics[i] for i in selected_indices]
+            edl_content = generate_edl(filtered_topics, source_filename=source_filename, fps=video_fps)
+            edl_filename = f"{os.path.splitext(source_filename)[0]}_selected_split.edl"
 
-    except Exception as e:
-        accessible_alert(f"처리 중 문제가 발생했습니다: {str(e)}", kind="error", icon_name="x-circle")
-    finally:
-        if raw_input_path and os.path.exists(raw_input_path):
-            try:
-                os.remove(raw_input_path)
-            except OSError:
-                pass
+            b64_content = base64.b64encode(edl_content.encode('utf-8')).decode('utf-8')
+            href = f"data:text/plain;charset=utf-8;base64,{b64_content}"
+
+            st.markdown(
+                f'<div class="h-card dl-wrapper">'
+                f'<div style="display: flex; align-items: center; gap: 16px;">'
+                f'<div class="download-icon-box">{icon("doc", 24, BRAND)}</div>'
+                f'<div>'
+                f'<div class="file-name">{html.escape(edl_filename)}</div>'
+                f'<div class="file-meta">선택된 {len(selected_indices)}개 주제 구간 타임코드 데이터 (CMX 3600)</div>'
+                f'</div>'
+                f'</div>'
+                f'<a href="{href}" download="{html.escape(edl_filename)}" class="dl-btn">선택 구간 EDL 파일 다운로드</a>'
+                f'</div>', 
+                unsafe_allow_html=True
+            )
 
 if __name__ == "__main__":
     main()
